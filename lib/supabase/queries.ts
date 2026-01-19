@@ -289,3 +289,217 @@ export async function calculateWonTwoPlusRegPeriods(gameId: string, teamCode: st
 
   return regulationWins >= 2;
 }
+
+/**
+ * Advanced Query Builders for query_linescore_data tool
+ * Pattern implementations from contracts/query-tool.md
+ */
+
+export interface TeamPeriodPerformanceRow {
+  game_date: string;
+  home_team_code: string;
+  away_team_code: string;
+  period_number: number;
+  goals_for: number;
+  goals_against: number;
+  empty_net_goals: number;
+  period_outcome: string;
+}
+
+export interface PeriodWinRankingRow {
+  team_code: string;
+  team_name: string;
+  periods_won: number;
+}
+
+export interface TwoPlusRegPeriodsRow {
+  game_date: string;
+  team_code: string;
+  home_team_code: string;
+  away_team_code: string;
+  regulation_periods_won: number;
+}
+
+/**
+ * Pattern 1: Team Period Performance (User Story 1)
+ * Get period-by-period results for a team in a date range
+ */
+export async function queryTeamPeriodPerformance(
+  teamCode: string,
+  startDate: string,
+  endDate: string,
+  limit: number = 100
+): Promise<TeamPeriodPerformanceRow[]> {
+  const { data, error } = await supabase.rpc('query_team_period_performance', {
+    p_team_code: teamCode,
+    p_start_date: startDate,
+    p_end_date: endDate,
+    p_limit: limit,
+  });
+
+  if (error) {
+    // Fallback to TypeScript query if RPC not available
+    const { data: fallbackData, error: fallbackError } = await supabase
+      .from('period_results')
+      .select(`
+        game_id,
+        period_number,
+        goals_for,
+        goals_against,
+        empty_net_goals,
+        period_outcome,
+        games!inner(
+          game_date,
+          home_team_code,
+          away_team_code
+        )
+      `)
+      .eq('team_code', teamCode)
+      .gte('games.game_date', startDate)
+      .lte('games.game_date', endDate)
+      .order('games.game_date', { ascending: true })
+      .order('period_number', { ascending: true })
+      .limit(limit);
+
+    if (fallbackError) throw fallbackError;
+
+    // Transform to expected format
+    return (fallbackData || []).map((row: any) => ({
+      game_date: row.games.game_date,
+      home_team_code: row.games.home_team_code,
+      away_team_code: row.games.away_team_code,
+      period_number: row.period_number,
+      goals_for: row.goals_for,
+      goals_against: row.goals_against,
+      empty_net_goals: row.empty_net_goals,
+      period_outcome: row.period_outcome,
+    }));
+  }
+
+  return data || [];
+}
+
+/**
+ * Pattern 2: Period Win Rankings (User Story 2)
+ * Get teams ranked by period wins in a date range
+ */
+export async function queryPeriodWinRankings(
+  periodOutcome: 'WIN' | 'LOSS' | 'TIE',
+  startDate: string,
+  endDate: string,
+  limit: number = 100
+): Promise<PeriodWinRankingRow[]> {
+  const { data, error } = await supabase
+    .from('period_results')
+    .select(`
+      team_code,
+      teams!inner(team_name),
+      games!inner(game_date)
+    `)
+    .eq('period_outcome', periodOutcome)
+    .gte('games.game_date', startDate)
+    .lte('games.game_date', endDate);
+
+  if (error) throw error;
+
+  // Aggregate by team_code
+  const aggregated = new Map<string, { team_name: string; count: number }>();
+
+  for (const row of data || []) {
+    const teamCode = row.team_code;
+    const teamName = (row.teams as any).team_name;
+
+    if (aggregated.has(teamCode)) {
+      aggregated.get(teamCode)!.count++;
+    } else {
+      aggregated.set(teamCode, { team_name: teamName, count: 1 });
+    }
+  }
+
+  // Convert to array and sort
+  const results: PeriodWinRankingRow[] = Array.from(aggregated.entries())
+    .map(([team_code, { team_name, count }]) => ({
+      team_code,
+      team_name,
+      periods_won: count,
+    }))
+    .sort((a, b) => {
+      // Sort by periods_won descending, then by team_code ascending
+      if (b.periods_won !== a.periods_won) {
+        return b.periods_won - a.periods_won;
+      }
+      return a.team_code.localeCompare(b.team_code);
+    })
+    .slice(0, limit);
+
+  return results;
+}
+
+/**
+ * Pattern 3: Two Plus Regulation Periods (User Story 3)
+ * Get games where a team won 2+ regulation periods
+ */
+export async function queryTwoPlusRegPeriods(
+  teamCode: string,
+  limit: number = 100
+): Promise<TwoPlusRegPeriodsRow[]> {
+  const { data, error } = await supabase
+    .from('period_results')
+    .select(`
+      game_id,
+      team_code,
+      period_number,
+      period_outcome,
+      games!inner(
+        game_date,
+        home_team_code,
+        away_team_code
+      )
+    `)
+    .eq('team_code', teamCode)
+    .eq('won_two_plus_reg_periods', true)
+    .lte('period_number', 3) // Regulation periods only
+    .order('games.game_date', { ascending: false });
+
+  if (error) throw error;
+
+  // Group by game_id and count wins
+  const gameMap = new Map<string, {
+    game_date: string;
+    home_team_code: string;
+    away_team_code: string;
+    wins: number;
+  }>();
+
+  for (const row of data || []) {
+    const gameId = row.game_id;
+    const game = (row.games as any);
+
+    if (!gameMap.has(gameId)) {
+      gameMap.set(gameId, {
+        game_date: game.game_date,
+        home_team_code: game.home_team_code,
+        away_team_code: game.away_team_code,
+        wins: 0,
+      });
+    }
+
+    if (row.period_outcome === 'WIN') {
+      gameMap.get(gameId)!.wins++;
+    }
+  }
+
+  // Convert to array, filter for 2+ wins, and limit
+  const results: TwoPlusRegPeriodsRow[] = Array.from(gameMap.entries())
+    .filter(([_, game]) => game.wins >= 2)
+    .map(([_, game]) => ({
+      game_date: game.game_date,
+      team_code: teamCode,
+      home_team_code: game.home_team_code,
+      away_team_code: game.away_team_code,
+      regulation_periods_won: game.wins,
+    }))
+    .slice(0, limit);
+
+  return results;
+}
