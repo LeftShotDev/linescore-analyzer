@@ -1,6 +1,7 @@
 import { streamText } from 'ai';
 import { defaultProvider } from '@/lib/ai/providers';
 import { CLAUDE_SYSTEM_PROMPT } from '@/lib/ai/claude-config';
+import { addGamesToolDefinition } from '@/lib/tools/add-games';
 
 // Allow streaming responses up to 30 seconds
 export const maxDuration = 30;
@@ -14,12 +15,14 @@ export async function POST(req: Request) {
       model: defaultProvider,
       system: CLAUDE_SYSTEM_PROMPT,
       messages,
-      // Tools will be registered here in Phase 3+
-      // tools: {
-      //   query_linescore_data: ...,
-      //   add_games_from_api: ...,
-      //   calculate_period_stats: ...
-      // },
+      tools: {
+        // Phase 3: User Story 4 - Data Collection
+        add_games_from_api: addGamesToolDefinition,
+        // Phase 4: User Story 1 - Query (coming next)
+        // query_linescore_data: ...,
+        // Phase 7: Enhanced Analytics
+        // calculate_period_stats: ...
+      },
       maxTokens: 4096,
       temperature: 0.7,
     });
