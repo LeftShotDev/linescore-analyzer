@@ -1,5 +1,115 @@
 // TypeScript types for NHL API responses
-// Based on NHL Stats API v1 structure
+// Based on NHL Web API (api-web.nhle.com)
+// Legacy types maintained for backward compatibility with transformers
+
+// ============================================================================
+// NEW API TYPES (api-web.nhle.com)
+// ============================================================================
+
+export interface NewNHLTeam {
+  id: number;
+  abbrev: string; // 3-letter code
+  commonName: {
+    default: string;
+  };
+  placeName: {
+    default: string;
+  };
+  logo: string;
+}
+
+export interface NewNHLPeriodDescriptor {
+  number: number;
+  periodType: string; // "REG", "OT", "SO"
+  maxRegulationPeriods: number;
+}
+
+export interface NewNHLGame {
+  id: number; // Game ID (e.g., 2024020705)
+  season: number; // e.g., 20242025
+  gameType: number; // 2 = regular season, 3 = playoffs
+  gameDate: string; // YYYY-MM-DD
+  venue: {
+    default: string;
+  };
+  startTimeUTC: string;
+  gameState: string; // "OFF", "LIVE", "FUT", "FINAL"
+  gameScheduleState: string;
+  awayTeam: NewNHLTeam & {
+    score?: number;
+  };
+  homeTeam: NewNHLTeam & {
+    score?: number;
+  };
+  periodDescriptor: NewNHLPeriodDescriptor;
+  gameOutcome?: {
+    lastPeriodType: string;
+  };
+}
+
+export interface NewNHLScheduleResponse {
+  gameWeek: Array<{
+    date: string;
+    dayAbbrev: string;
+    numberOfGames: number;
+    games: NewNHLGame[];
+  }>;
+  oddsPartners: any[];
+  preSeasonStartDate: string;
+  regularSeasonStartDate: string;
+  regularSeasonEndDate: string;
+  playoffEndDate: string;
+  numberOfGames: number;
+}
+
+export interface NewNHLPlay {
+  eventId: number;
+  periodDescriptor: NewNHLPeriodDescriptor;
+  timeInPeriod: string;
+  timeRemaining: string;
+  situationCode: string;
+  homeTeamDefendingSide: string;
+  typeCode: number; // 505 = goal, etc.
+  typeDescKey: string; // "goal", "shot", etc.
+  sortOrder: number;
+  details?: {
+    eventOwnerTeamId?: number;
+    scoringPlayerId?: number;
+    scoringPlayerTotal?: number;
+    assist1PlayerId?: number;
+    assist1PlayerTotal?: number;
+    assist2PlayerId?: number;
+    assist2PlayerTotal?: number;
+    awayScore?: number;
+    homeScore?: number;
+    goalieInNetId?: number;
+    shotType?: string;
+    reason?: string;
+  };
+}
+
+export interface NewNHLPlayByPlayResponse {
+  id: number;
+  season: number;
+  gameType: number;
+  gameDate: string;
+  venue: { default: string };
+  startTimeUTC: string;
+  gameState: string;
+  gameScheduleState: string;
+  awayTeam: NewNHLTeam & { score: number };
+  homeTeam: NewNHLTeam & { score: number };
+  periodDescriptor: NewNHLPeriodDescriptor;
+  gameOutcome?: {
+    lastPeriodType: string;
+  };
+  plays: NewNHLPlay[];
+  // ... other fields we may not need
+}
+
+// ============================================================================
+// LEGACY API TYPES (statsapi.web.nhl.com) - for backward compatibility
+// ============================================================================
 
 export interface NHLTeam {
   id: number;

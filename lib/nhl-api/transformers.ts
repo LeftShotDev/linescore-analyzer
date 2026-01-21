@@ -129,6 +129,74 @@ export function transformScheduleGame(
 }
 
 /**
+ * Calculate period summaries from play-by-play data
+ * New API doesn't provide period summaries, so we calculate from goal events
+ */
+function calculatePeriodSummaries(
+  plays: NHLPlay[],
+  homeTeamId: number,
+  awayTeamId: number
+): NHLPeriod[] {
+  // Group goal events by period
+  const periodMap = new Map<number, {
+    homeGoals: number;
+    awayGoals: number;
+    periodType: string;
+  }>();
+
+  // Filter for goal events and group by period
+  const goalPlays = plays.filter(p => p.result.eventTypeId === 'GOAL' || p.result.event === 'goal');
+
+  for (const play of goalPlays) {
+    const period = play.about.period;
+    const teamId = play.team?.id;
+
+    if (!periodMap.has(period)) {
+      periodMap.set(period, {
+        homeGoals: 0,
+        awayGoals: 0,
+        periodType: play.about.periodType,
+      });
+    }
+
+    const periodData = periodMap.get(period)!;
+    if (teamId === homeTeamId) {
+      periodData.homeGoals++;
+    } else if (teamId === awayTeamId) {
+      periodData.awayGoals++;
+    }
+  }
+
+  // Build period summaries array
+  const periods: NHLPeriod[] = [];
+  const maxPeriod = Math.max(...Array.from(periodMap.keys()), 3); // At least 3 periods
+
+  for (let i = 1; i <= maxPeriod; i++) {
+    const data = periodMap.get(i) || { homeGoals: 0, awayGoals: 0, periodType: 'REGULAR' };
+
+    periods.push({
+      periodType: data.periodType,
+      num: i,
+      ordinalNum: i <= 3 ? `${i}${i === 1 ? 'st' : i === 2 ? 'nd' : 'rd'}` : data.periodType,
+      startTime: '',
+      endTime: '',
+      home: {
+        goals: data.homeGoals,
+        shotsOnGoal: 0,
+        rinkSide: '',
+      },
+      away: {
+        goals: data.awayGoals,
+        shotsOnGoal: 0,
+        rinkSide: '',
+      },
+    });
+  }
+
+  return periods;
+}
+
+/**
  * Transform NHL game feed to database Game and PeriodResult format
  * This is the main transformation function for complete game data
  */
@@ -164,10 +232,15 @@ export function transformGameFeed(
     away_team_standing: awayStanding || null,
   };
 
+  // Calculate period summaries from plays if not available in linescore
+  const periods = linescore.periods && linescore.periods.length > 0
+    ? linescore.periods
+    : calculatePeriodSummaries(plays.allPlays, homeTeamId, awayTeamId);
+
   // Transform period results for both teams
   const periodResults: Array<Omit<PeriodResult, 'id'>> = [];
 
-  for (const period of linescore.periods) {
+  for (const period of periods) {
     const periodNumber = period.num;
     const periodType = period.num <= 3 ? 'REGULATION' : period.num === 4 ? 'OT' : 'SO';
 
