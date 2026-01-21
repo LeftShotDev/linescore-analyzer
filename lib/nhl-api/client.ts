@@ -1,6 +1,8 @@
 // NHL API Client with retry logic and rate limiting
 // Constitution Principle I: Data Accuracy & Integrity - NHL API is exclusive data source
 
+import type { NHLScheduleResponse, NHLGameFeed } from './types';
+
 const NHL_API_BASE_URL = process.env.NHL_API_BASE_URL || 'https://statsapi.web.nhl.com/api/v1';
 
 // Rate limiting configuration (FR-016: 2 requests per second)
@@ -125,18 +127,18 @@ export const nhlApi = {
    * @param startDate YYYY-MM-DD format
    * @param endDate YYYY-MM-DD format
    */
-  async getSchedule(startDate: string, endDate: string) {
+  async getSchedule(startDate: string, endDate: string): Promise<NHLScheduleResponse> {
     const url = `${NHL_API_BASE_URL}/schedule?startDate=${startDate}&endDate=${endDate}`;
-    return fetchWithRetry(url);
+    return fetchWithRetry<NHLScheduleResponse>(url);
   },
 
   /**
    * Get detailed game feed with linescore and play-by-play
    * @param gameId NHL game ID (e.g., "2025020767")
    */
-  async getGameFeed(gameId: string) {
+  async getGameFeed(gameId: string): Promise<NHLGameFeed> {
     const url = `${NHL_API_BASE_URL}/game/${gameId}/feed/live`;
-    return fetchWithRetry(url);
+    return fetchWithRetry<NHLGameFeed>(url);
   },
 
   /**

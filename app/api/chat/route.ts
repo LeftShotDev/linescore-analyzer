@@ -13,7 +13,7 @@ export async function POST(req: Request) {
     const { messages } = await req.json();
 
     // Stream chat completion with Claude Sonnet 4.5
-    const result = streamText({
+    const result = await streamText({
       model: defaultProvider,
       system: CLAUDE_SYSTEM_PROMPT,
       messages,
