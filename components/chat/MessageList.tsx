@@ -9,6 +9,8 @@ import { ImportSummary } from './ImportSummary';
 interface MessageListProps {
   messages: Message[];
   error: Error | undefined;
+  quickPrompts?: string[];
+  onQuickPrompt?: (prompt: string) => void;
 }
 
 function determineDataType(results: any[]): 'team_period_performance' | 'period_win_rankings' | 'two_plus_reg_periods' | null {
@@ -34,7 +36,7 @@ function determineDataType(results: any[]): 'team_period_performance' | 'period_
   return null;
 }
 
-export function MessageList({ messages, error }: MessageListProps) {
+export function MessageList({ messages, error, quickPrompts, onQuickPrompt }: MessageListProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll to bottom when new messages arrive
@@ -42,52 +44,35 @@ export function MessageList({ messages, error }: MessageListProps) {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  const currentTime = new Date().toLocaleTimeString('en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true
+  });
+
   if (messages.length === 0 && !error) {
     return (
-      <div className="flex flex-col items-center justify-center h-full text-center p-8">
-        <div className="max-w-2xl">
-          <h2 className="text-2xl font-semibold text-gray-900 mb-4">
-            Welcome to the NHL Period Analyzer
-          </h2>
-          <p className="text-gray-600 mb-6">
-            Ask questions about NHL period performance in natural language. I can help you:
+      <div className="flex flex-col h-full p-4">
+        <div className="mb-4">
+          <p className="text-sm text-gray-700 mb-4">
+            Hello! I can help you analyze NHL team statistics. Try asking about playoff probabilities, team comparisons, or schedule strength.
           </p>
-          <ul className="text-left text-gray-700 space-y-2 mb-8">
-            <li className="flex items-start">
-              <span className="text-blue-600 mr-2">•</span>
-              <span>Query period-by-period results for any team</span>
-            </li>
-            <li className="flex items-start">
-              <span className="text-blue-600 mr-2">•</span>
-              <span>Calculate statistical analysis and performance metrics</span>
-            </li>
-            <li className="flex items-start">
-              <span className="text-blue-600 mr-2">•</span>
-              <span>Find teams that won 2+ regulation periods</span>
-            </li>
-            <li className="flex items-start">
-              <span className="text-blue-600 mr-2">•</span>
-              <span>Import game data from the NHL API</span>
-            </li>
-          </ul>
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-2">
-            <p className="text-sm text-blue-800 font-medium">Example queries:</p>
-            <div className="space-y-1">
-              <p className="text-sm text-blue-700">
-                📊 "Show me the Bruins period-by-period stats from December 2024"
-              </p>
-              <p className="text-sm text-blue-700">
-                🏆 "Which teams won the most periods in January 2025?"
-              </p>
-              <p className="text-sm text-blue-700">
-                📈 "Calculate period statistics for the Maple Leafs this season"
-              </p>
-              <p className="text-sm text-blue-700">
-                📥 "Import games from 2025-01-01 to 2025-01-15"
-              </p>
-            </div>
-          </div>
+          <p className="text-xs text-gray-500 mb-4">{currentTime}</p>
         </div>
+
+        {quickPrompts && quickPrompts.length > 0 && (
+          <div className="space-y-2">
+            {quickPrompts.map((prompt, idx) => (
+              <button
+                key={idx}
+                onClick={() => onQuickPrompt?.(prompt)}
+                className="w-full text-left px-3 py-2 text-sm text-gray-700 bg-white border border-gray-200 rounded-md hover:bg-gray-50 hover:border-gray-300 transition-colors"
+              >
+                {prompt}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
     );
   }
@@ -126,10 +111,10 @@ export function MessageList({ messages, error }: MessageListProps) {
           key={message.id}
           className={`flex ${
             message.role === 'user' ? 'justify-end' : 'justify-start'
-          }`}
+          } mb-3`}
         >
           <div
-            className={`max-w-3xl rounded-lg px-4 py-3 ${
+            className={`max-w-[85%] rounded-lg px-3 py-2 text-sm ${
               message.role === 'user'
                 ? 'bg-blue-600 text-white'
                 : 'bg-white border border-gray-200 text-gray-900'
@@ -138,11 +123,11 @@ export function MessageList({ messages, error }: MessageListProps) {
             <div className="flex items-start space-x-2">
               <div className="flex-shrink-0">
                 {message.role === 'user' ? (
-                  <div className="w-6 h-6 rounded-full bg-blue-700 flex items-center justify-center text-xs font-medium">
+                  <div className="w-5 h-5 rounded-full bg-blue-700 flex items-center justify-center text-[10px] font-medium">
                     U
                   </div>
                 ) : (
-                  <div className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center text-xs font-medium">
+                  <div className="w-5 h-5 rounded-full bg-gray-200 flex items-center justify-center text-[10px] font-medium">
                     AI
                   </div>
                 )}
@@ -150,11 +135,11 @@ export function MessageList({ messages, error }: MessageListProps) {
               <div className="flex-1 min-w-0">
                 {/* Tool invocations */}
                 {message.toolInvocations && message.toolInvocations.length > 0 && (
-                  <div className="mb-3 space-y-2">
+                  <div className="mb-2 space-y-2">
                     {message.toolInvocations.map((tool, idx) => (
                       <div
                         key={idx}
-                        className="bg-gray-50 border border-gray-200 rounded p-3 text-sm"
+                        className="bg-gray-50 border border-gray-200 rounded p-2 text-xs"
                       >
                         <div className="flex items-center space-x-2 mb-2">
                           <svg
