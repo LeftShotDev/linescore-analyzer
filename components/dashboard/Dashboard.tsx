@@ -1,159 +1,75 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { TeamStatsTable } from './TeamStatsTable';
 import { DashboardControls } from './DashboardControls';
 import { ChatInterface } from '../chat/ChatInterface';
 
 export function Dashboard() {
   const [selectedViewMode, setSelectedViewMode] = useState<'playoffs' | 'schedule' | 'full-stats'>('playoffs');
-  const [teamFilter, setTeamFilter] = useState<'top-16' | 'all'>('all');
-  const [selectedTeamsCount, setSelectedTeamsCount] = useState(32);
+  const [conferenceFilter, setConferenceFilter] = useState<'all' | 'eastern' | 'western'>('all');
+  const [divisionFilter, setDivisionFilter] = useState<'all' | 'metropolitan' | 'atlantic' | 'central' | 'pacific'>('all');
+  const [teamData, setTeamData] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Mock data - in a real app, this would come from an API or database
-  const mockTeamData = [
-    {
-      teamCode: 'COL',
-      teamName: 'Colorado Avalanche',
-      record: { wins: 59, losses: 13, otLosses: 10 },
-      points: 128.7,
-      playoffs: 99.8,
-      divisionFinal: 96.6,
-      conferenceFinal: 66.8,
-      stanleyCupFinal: 47.8,
-      stanleyCup: 47.8,
-    },
-    {
-      teamCode: 'TBL',
-      teamName: 'Tampa Bay Lightning',
-      record: { wins: 54, losses: 22, otLosses: 6 },
-      points: 113.9,
-      playoffs: 99.7,
-      divisionFinal: 85.2,
-      conferenceFinal: 68.7,
-      stanleyCupFinal: 30.2,
-      stanleyCup: 30.2,
-    },
-    {
-      teamCode: 'EDM',
-      teamName: 'Edmonton Oilers',
-      record: { wins: 51, losses: 25, otLosses: 7 },
-      points: 108.5,
-      playoffs: 94.6,
-      divisionFinal: 67.0,
-      conferenceFinal: 33.9,
-      stanleyCupFinal: 7.9,
-      stanleyCup: 7.9,
-    },
-    {
-      teamCode: 'CAR',
-      teamName: 'Carolina Hurricanes',
-      record: { wins: 49, losses: 26, otLosses: 7 },
-      points: 105.6,
-      playoffs: 97.8,
-      divisionFinal: 65.6,
-      conferenceFinal: 38.4,
-      stanleyCupFinal: 6.0,
-      stanleyCup: 6.0,
-    },
-    {
-      teamCode: 'DAL',
-      teamName: 'Dallas Stars',
-      record: { wins: 46, losses: 23, otLosses: 13 },
-      points: 105.2,
-      playoffs: 99.5,
-      divisionFinal: 54.1,
-      conferenceFinal: 15.8,
-      stanleyCupFinal: 2.7,
-      stanleyCup: 2.7,
-    },
-    {
-      teamCode: 'BOS',
-      teamName: 'Boston Bruins',
-      record: { wins: 48, losses: 24, otLosses: 10 },
-      points: 106.0,
-      playoffs: 98.5,
-      divisionFinal: 72.3,
-      conferenceFinal: 45.2,
-      stanleyCupFinal: 18.5,
-      stanleyCup: 18.5,
-    },
-    {
-      teamCode: 'TOR',
-      teamName: 'Toronto Maple Leafs',
-      record: { wins: 47, losses: 25, otLosses: 10 },
-      points: 104.0,
-      playoffs: 96.2,
-      divisionFinal: 68.9,
-      conferenceFinal: 42.1,
-      stanleyCupFinal: 15.3,
-      stanleyCup: 15.3,
-    },
-    {
-      teamCode: 'NYR',
-      teamName: 'New York Rangers',
-      record: { wins: 45, losses: 27, otLosses: 10 },
-      points: 100.0,
-      playoffs: 89.3,
-      divisionFinal: 58.7,
-      conferenceFinal: 32.4,
-      stanleyCupFinal: 9.8,
-      stanleyCup: 9.8,
-    },
-    {
-      teamCode: 'FLA',
-      teamName: 'Florida Panthers',
-      record: { wins: 44, losses: 28, otLosses: 10 },
-      points: 98.0,
-      playoffs: 85.6,
-      divisionFinal: 52.3,
-      conferenceFinal: 28.9,
-      stanleyCupFinal: 7.2,
-      stanleyCup: 7.2,
-    },
-    {
-      teamCode: 'VGK',
-      teamName: 'Vegas Golden Knights',
-      record: { wins: 43, losses: 29, otLosses: 10 },
-      points: 96.0,
-      playoffs: 78.4,
-      divisionFinal: 48.2,
-      conferenceFinal: 25.6,
-      stanleyCupFinal: 5.1,
-      stanleyCup: 5.1,
-    },
-    {
-      teamCode: 'MIN',
-      teamName: 'Minnesota Wild',
-      record: { wins: 42, losses: 30, otLosses: 10 },
-      points: 94.0,
-      playoffs: 72.1,
-      divisionFinal: 42.8,
-      conferenceFinal: 21.3,
-      stanleyCupFinal: 3.8,
-      stanleyCup: 3.8,
-    },
-    {
-      teamCode: 'ANA',
-      teamName: 'Anaheim Ducks',
-      record: { wins: 39, losses: 37, otLosses: 6 },
-      points: 84.1,
-      playoffs: 31.9,
-      divisionFinal: 7.1,
-      conferenceFinal: 2.1,
-      stanleyCupFinal: 0.1,
-      stanleyCup: 0.1,
-    },
-  ];
+  // Fetch teams from the database on mount
+  useEffect(() => {
+    const fetchTeams = async () => {
+      try {
+        const response = await fetch('/api/teams');
+        const data = await response.json();
 
-  const filteredData = teamFilter === 'top-16'
-    ? mockTeamData.slice(0, 16)
-    : mockTeamData;
+        if (data.teams) {
+          // Transform database teams to match the table format
+          const transformedTeams = data.teams.map((team: any) => ({
+            teamCode: team.team_code,
+            teamName: team.team_name,
+            conference: team.conference,
+            division: team.division,
+            record: { wins: 0, losses: 0, otLosses: 0 },
+            points: 0,
+            periodsWon: 0,
+            periodsLost: 0,
+            periodsTied: 0,
+            goodWins: 0,
+            badWins: 0,
+            difference: 0,
+          }));
+          setTeamData(transformedTeams);
+        }
+      } catch (error) {
+        console.error('Error fetching teams:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchTeams();
+  }, []);
+
+  // Filter data based on conference and division
+  const filteredData = teamData.filter((team) => {
+    let passesConferenceFilter = true;
+    let passesDivisionFilter = true;
+
+    if (conferenceFilter !== 'all') {
+      passesConferenceFilter = team.conference?.toLowerCase() === conferenceFilter;
+    }
+
+    if (divisionFilter !== 'all') {
+      passesDivisionFilter = team.division?.toLowerCase() === divisionFilter;
+    }
+
+    return passesConferenceFilter && passesDivisionFilter;
+  });
+
+  const selectedTeamsCount = filteredData.length;
 
   return (
-    <div className="flex h-screen bg-gray-50">
-      {/* Main Content Area */}
-      <div className="flex-1 flex flex-col overflow-hidden">
+    <div className="flex h-screen bg-gray-50 justify-center">
+      <div className="flex w-full max-w-[1440px]">
+        {/* Main Content Area */}
+        <div className="flex-1 flex flex-col overflow-hidden">
         {/* Top Section with Controls */}
         <div className="bg-white border-b border-gray-200 px-6 py-4">
           <div className="flex items-center justify-between mb-4">
@@ -171,22 +87,24 @@ export function Dashboard() {
           <DashboardControls
             selectedViewMode={selectedViewMode}
             setSelectedViewMode={setSelectedViewMode}
-            teamFilter={teamFilter}
-            setTeamFilter={setTeamFilter}
+            conferenceFilter={conferenceFilter}
+            setConferenceFilter={setConferenceFilter}
+            divisionFilter={divisionFilter}
+            setDivisionFilter={setDivisionFilter}
             selectedTeamsCount={selectedTeamsCount}
-            setSelectedTeamsCount={setSelectedTeamsCount}
           />
         </div>
 
         {/* Data Table */}
         <div className="flex-1 overflow-auto bg-white">
-          <TeamStatsTable data={filteredData} viewMode={selectedViewMode} />
+          <TeamStatsTable data={filteredData} viewMode={selectedViewMode} isLoading={isLoading} />
         </div>
       </div>
 
-      {/* Right Panel - Chat Interface */}
-      <div className="w-96 border-l border-gray-200 bg-white flex flex-col">
-        <ChatInterface />
+        {/* Right Panel - Chat Interface */}
+        <div className="w-96 border-l border-gray-200 bg-white flex flex-col">
+          <ChatInterface />
+        </div>
       </div>
     </div>
   );
