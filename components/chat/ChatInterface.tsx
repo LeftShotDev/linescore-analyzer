@@ -1,57 +1,210 @@
 'use client';
 
-import { useChat } from 'ai/react';
+import { useState, useCallback, useEffect } from 'react';
 import { MessageList } from './MessageList';
 import { InputBox } from './InputBox';
 
+interface Message {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+}
+
 const quickPrompts = [
-  'Which teams have the highest playoff probability?',
-  'Show me teams with Stanley Cup odds above 5%',
-  'Compare the top 5 teams by points',
-  'What are the strongest schedules remaining?',
-  'Analyze Western Conference playoff race',
+  'What teams have the most good wins this season?',
+  'Show me period statistics for the Carolina Hurricanes',
+  'Import games from October 8-15, 2024',
+  'Compare Eastern vs Western conference teams',
+  'Which teams win the most periods?',
 ];
 
 export function ChatInterface() {
-  const {
-    messages,
-    input,
-    handleInputChange,
-    handleSubmit,
-    isLoading,
-    error,
-    setInput,
-    append,
-  } = useChat({
-    api: '/api/chat',
-    onError: (error) => {
-      console.error('Chat error:', error);
-    },
-  });
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [input, setInput] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<Error | null>(null);
+  const [sessionId, setSessionId] = useState<string | null>(null);
 
-  const handleQuickPrompt = (prompt: string) => {
-    append({
+  // Initialize session ID on mount
+  useEffect(() => {
+    const storedSessionId = sessionStorage.getItem('nhl_chat_session');
+    if (storedSessionId) {
+      setSessionId(storedSessionId);
+    } else {
+      const newSessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      sessionStorage.setItem('nhl_chat_session', newSessionId);
+      setSessionId(newSessionId);
+    }
+  }, []);
+
+  const handleSubmit = useCallback(async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (!input.trim() || isLoading) return;
+
+    const userMessage: Message = {
+      id: `user_${Date.now()}`,
       role: 'user',
-      content: prompt,
-    });
-  };
+      content: input.trim(),
+    };
+
+    setMessages(prev => [...prev, userMessage]);
+    setInput('');
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          messages: [...messages, userMessage].map(m => ({
+            role: m.role,
+            content: m.content,
+          })),
+          sessionId,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to get response');
+      }
+
+      const data = await response.json();
+
+      // Update session ID if returned
+      if (data.sessionId && data.sessionId !== sessionId) {
+        setSessionId(data.sessionId);
+        sessionStorage.setItem('nhl_chat_session', data.sessionId);
+      }
+
+      const assistantMessage: Message = {
+        id: `assistant_${Date.now()}`,
+        role: 'assistant',
+        content: data.response,
+      };
+
+      setMessages(prev => [...prev, assistantMessage]);
+    } catch (err) {
+      console.error('Chat error:', err);
+      setError(err instanceof Error ? err : new Error('Unknown error'));
+
+      // Add error message to chat
+      const errorMessage: Message = {
+        id: `error_${Date.now()}`,
+        role: 'assistant',
+        content: `I encountered an error: ${err instanceof Error ? err.message : 'Unknown error'}. Please try again.`,
+      };
+      setMessages(prev => [...prev, errorMessage]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [input, isLoading, messages, sessionId]);
+
+  const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    setInput(e.target.value);
+  }, []);
+
+  const handleQuickPrompt = useCallback((prompt: string) => {
+    setInput(prompt);
+    // Auto-submit after a brief delay to show the selected prompt
+    setTimeout(() => {
+      const userMessage: Message = {
+        id: `user_${Date.now()}`,
+        role: 'user',
+        content: prompt,
+      };
+
+      setMessages(prev => [...prev, userMessage]);
+      setIsLoading(true);
+      setError(null);
+
+      fetch('/api/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          messages: [...messages, userMessage].map(m => ({
+            role: m.role,
+            content: m.content,
+          })),
+          sessionId,
+        }),
+      })
+        .then(response => {
+          if (!response.ok) {
+            throw new Error('Failed to get response');
+          }
+          return response.json();
+        })
+        .then(data => {
+          if (data.sessionId && data.sessionId !== sessionId) {
+            setSessionId(data.sessionId);
+            sessionStorage.setItem('nhl_chat_session', data.sessionId);
+          }
+
+          const assistantMessage: Message = {
+            id: `assistant_${Date.now()}`,
+            role: 'assistant',
+            content: data.response,
+          };
+          setMessages(prev => [...prev, assistantMessage]);
+        })
+        .catch(err => {
+          console.error('Chat error:', err);
+          setError(err instanceof Error ? err : new Error('Unknown error'));
+        })
+        .finally(() => {
+          setIsLoading(false);
+          setInput('');
+        });
+    }, 100);
+  }, [messages, sessionId]);
+
+  const clearChat = useCallback(() => {
+    setMessages([]);
+    const newSessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    sessionStorage.setItem('nhl_chat_session', newSessionId);
+    setSessionId(newSessionId);
+  }, []);
 
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
       <div className="bg-white border-b border-gray-200 px-4 py-4">
-        <div className="flex items-center gap-2 mb-1">
-          <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-          </svg>
-          <h2 className="text-lg font-semibold text-gray-900">NHL Analytics Assistant</h2>
+        <div className="flex items-center justify-between mb-1">
+          <div className="flex items-center gap-2">
+            <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+            </svg>
+            <h2 className="text-lg font-semibold text-gray-900">NHL Analytics Agent</h2>
+          </div>
+          {messages.length > 0 && (
+            <button
+              onClick={clearChat}
+              className="text-xs text-gray-500 hover:text-gray-700 px-2 py-1 rounded hover:bg-gray-100"
+            >
+              Clear
+            </button>
+          )}
         </div>
-        <p className="text-sm text-gray-600">Ask questions about team statistics and predictions.</p>
+        <p className="text-xs text-gray-500">
+          ReAct-powered agent with memory and human-in-the-loop approval
+        </p>
       </div>
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto bg-gray-50">
-        <MessageList messages={messages} error={error} quickPrompts={quickPrompts} onQuickPrompt={handleQuickPrompt} />
+        <MessageList
+          messages={messages}
+          error={error}
+          quickPrompts={quickPrompts}
+          onQuickPrompt={handleQuickPrompt}
+          isLoading={isLoading}
+        />
       </div>
 
       {/* Input */}

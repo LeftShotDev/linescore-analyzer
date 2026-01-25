@@ -4,9 +4,9 @@
 
 import { z } from 'zod';
 import { nhlApi } from '../nhl-api/client';
-import type { NHLGameFeed, NHLScheduleResponse } from '../nhl-api/types';
+import type { NHLScheduleResponse, NewNHLLandingResponse } from '../nhl-api/types';
 import {
-  transformGameFeed,
+  transformGameLanding,
   transformScheduleGame,
   validateGameData,
 } from '../nhl-api/transformers';
@@ -119,12 +119,12 @@ async function validateTeamCodes(homeTeamCode: string, awayTeamCode: string): Pr
  * Uses database transaction for consistency (FR-024)
  */
 async function insertGameWithPeriods(
-  gameFeed: NHLGameFeed,
+  landingData: NewNHLLandingResponse,
   skipExisting: boolean
 ): Promise<{ success: boolean; skipped: boolean; error?: string }> {
   try {
-    // Transform NHL API data to database format
-    const { game, periodResults } = transformGameFeed(gameFeed);
+    // Transform NHL API data to database format using landing endpoint
+    const { game, periodResults } = transformGameLanding(landingData);
 
     // Check if game already exists
     const existingGame = await gameQueries.exists(game.game_id);
@@ -263,19 +263,19 @@ export async function addGamesFromApi(params: AddGamesToolParams): Promise<AddGa
 
     for (const gameId of gameIds) {
       try {
-        // Fetch detailed game feed with linescore and play-by-play (T022)
+        // Fetch game landing data with summary scoring (T022)
         console.log(`Fetching game ${gameId}...`);
-        const gameFeed: NHLGameFeed = await nhlApi.getGameFeed(gameId);
+        const landingData: NewNHLLandingResponse = await nhlApi.getGameLanding(gameId);
 
         // Check if game is final (don't insert in-progress games)
-        if (gameFeed.gameData.status.abstractGameState !== 'Final') {
-          console.log(`Skipping game ${gameId}: not final (${gameFeed.gameData.status.abstractGameState})`);
+        if (landingData.gameState !== 'OFF') {
+          console.log(`Skipping game ${gameId}: not final (${landingData.gameState})`);
           results.games_skipped++;
           continue;
         }
 
         // Insert game with period results (T023-T025)
-        const insertResult = await insertGameWithPeriods(gameFeed, params.skipExisting);
+        const insertResult = await insertGameWithPeriods(landingData, params.skipExisting);
 
         if (insertResult.success) {
           if (insertResult.skipped) {
@@ -287,7 +287,7 @@ export async function addGamesFromApi(params: AddGamesToolParams): Promise<AddGa
           results.games_failed++;
           results.failures.push({
             game_id: gameId,
-            date: gameFeed.gameData.gameDate.split('T')[0],
+            date: landingData.gameDate,
             error: insertResult.error || 'Unknown error',
           });
         }

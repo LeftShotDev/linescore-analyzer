@@ -1,46 +1,103 @@
-import { streamText } from 'ai';
-import { defaultProvider } from '@/lib/ai/providers';
-import { CLAUDE_SYSTEM_PROMPT } from '@/lib/ai/claude-config';
-import { addGamesToolDefinition } from '@/lib/tools/add-games';
-import { queryLinescoreToolDefinition } from '@/lib/tools/query-linescore';
-import { calculatePeriodStatsToolDefinition } from '@/lib/tools/calculate-period-stats';
+import { NextRequest, NextResponse } from 'next/server';
+import { processMessage, getConversationHistory, clearMemory } from '@/lib/langchain/agent';
 
-// Allow streaming responses up to 30 seconds
-export const maxDuration = 30;
+// Allow responses up to 60 seconds for ReAct agent processing
+export const maxDuration = 60;
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
-    const { messages } = await req.json();
+    const body = await req.json();
+    const { messages, sessionId } = body;
 
-    // Stream chat completion with Claude Sonnet 4.5
-    const result = await streamText({
-      model: defaultProvider,
-      system: CLAUDE_SYSTEM_PROMPT,
-      messages,
-      tools: {
-        // Phase 3: User Story 4 - Data Collection
-        add_games_from_api: addGamesToolDefinition,
-        // Phase 4: User Story 1 - Query
-        query_linescore_data: queryLinescoreToolDefinition,
-        // Phase 7: Enhanced Analytics
-        calculate_period_stats: calculatePeriodStatsToolDefinition,
-      },
-      maxTokens: 4096,
-      temperature: 0.7,
+    // Get or generate a session ID for memory management
+    const session = sessionId || `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+    // Get the latest user message
+    const lastMessage = messages[messages.length - 1];
+    if (!lastMessage || lastMessage.role !== 'user') {
+      return NextResponse.json(
+        { error: 'No user message provided' },
+        { status: 400 }
+      );
+    }
+
+    const userMessage = lastMessage.content;
+
+    // Check for special commands
+    if (userMessage.toLowerCase() === '/clear' || userMessage.toLowerCase() === '/reset') {
+      clearMemory(session);
+      return NextResponse.json({
+        response: 'Conversation history cleared. How can I help you with NHL analytics?',
+        sessionId: session,
+      });
+    }
+
+    // Process the message with the LangChain ReAct agent
+    const result = await processMessage(session, userMessage);
+
+    // Return the response
+    return NextResponse.json({
+      response: result.response,
+      sessionId: session,
+      approvalRequired: result.approvalRequired,
+      approvalId: result.approvalId,
+      // Include intermediate steps in development mode
+      ...(process.env.NODE_ENV === 'development' && {
+        intermediateSteps: result.intermediateSteps,
+      }),
     });
-
-    return result.toDataStreamResponse();
   } catch (error) {
     console.error('Chat API error:', error);
-    return new Response(
-      JSON.stringify({
+
+    // Handle specific error types
+    if (error instanceof Error) {
+      if (error.message.includes('ANTHROPIC_API_KEY')) {
+        return NextResponse.json(
+          {
+            error: 'Configuration error',
+            message: 'Anthropic API key is not configured.',
+          },
+          { status: 500 }
+        );
+      }
+    }
+
+    return NextResponse.json(
+      {
         error: 'Internal server error',
         message: error instanceof Error ? error.message : 'Unknown error',
-      }),
+      },
+      { status: 500 }
+    );
+  }
+}
+
+// GET endpoint to retrieve conversation history
+export async function GET(req: NextRequest) {
+  try {
+    const sessionId = req.nextUrl.searchParams.get('sessionId');
+
+    if (!sessionId) {
+      return NextResponse.json(
+        { error: 'Session ID required' },
+        { status: 400 }
+      );
+    }
+
+    const history = await getConversationHistory(sessionId);
+
+    return NextResponse.json({
+      sessionId,
+      history,
+    });
+  } catch (error) {
+    console.error('Chat history error:', error);
+    return NextResponse.json(
       {
-        status: 500,
-        headers: { 'Content-Type': 'application/json' },
-      }
+        error: 'Internal server error',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      },
+      { status: 500 }
     );
   }
 }

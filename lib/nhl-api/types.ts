@@ -88,6 +88,54 @@ export interface NewNHLPlay {
   };
 }
 
+// Landing endpoint types for summary.scoring
+export interface NewNHLGoalAssist {
+  playerId: number;
+  firstName: { default: string };
+  lastName: { default: string };
+  assistsToDate: number;
+}
+
+export interface NewNHLGoal {
+  situationCode: string; // e.g., "1551" - last digit indicates EN (1=EN, 0=not EN)
+  strength: string; // "ev", "pp", "sh"
+  playerId: number;
+  firstName: { default: string };
+  lastName: { default: string };
+  name: { default: string };
+  teamAbbrev: string;
+  timeInPeriod: string;
+  shotType: string;
+  goalModifier: string; // "empty-net" for EN goals
+  awayScore: number;
+  homeScore: number;
+  leadingTeamAbbrev?: string;
+  assists: NewNHLGoalAssist[];
+  goalsToDate: number;
+}
+
+export interface NewNHLPeriodScoring {
+  periodDescriptor: NewNHLPeriodDescriptor;
+  goals: NewNHLGoal[];
+}
+
+export interface NewNHLLandingResponse {
+  id: number;
+  season: number;
+  gameType: number;
+  gameDate: string;
+  venue: { default: string };
+  startTimeUTC: string;
+  gameState: string; // "OFF" = final
+  gameScheduleState: string;
+  awayTeam: NewNHLTeam & { score: number };
+  homeTeam: NewNHLTeam & { score: number };
+  periodDescriptor: NewNHLPeriodDescriptor;
+  summary: {
+    scoring: NewNHLPeriodScoring[];
+  };
+}
+
 export interface NewNHLPlayByPlayResponse {
   id: number;
   season: number;

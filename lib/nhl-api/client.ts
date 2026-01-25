@@ -5,7 +5,8 @@ import type {
   NHLScheduleResponse,
   NHLGameFeed,
   NewNHLScheduleResponse,
-  NewNHLPlayByPlayResponse
+  NewNHLPlayByPlayResponse,
+  NewNHLLandingResponse
 } from './types';
 
 const NHL_API_BASE_URL = process.env.NHL_API_BASE_URL || 'https://api-web.nhle.com';
@@ -241,6 +242,16 @@ export const nhlApi = {
       totalMatches: allGames.length,
       dates: scheduleDates,
     };
+  },
+
+  /**
+   * Get game landing data with summary scoring
+   * This is the preferred endpoint for parsing period-by-period game data
+   * @param gameId NHL game ID (e.g., "2024020003")
+   */
+  async getGameLanding(gameId: string): Promise<NewNHLLandingResponse> {
+    const url = `${NHL_API_BASE_URL}/v1/gamecenter/${gameId}/landing`;
+    return fetchWithRetry<NewNHLLandingResponse>(url);
   },
 
   /**

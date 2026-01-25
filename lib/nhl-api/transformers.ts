@@ -7,6 +7,8 @@ import type {
   NHLPlay,
   NHLScheduleGame,
   NHLPeriod,
+  NewNHLLandingResponse,
+  NewNHLPeriodScoring,
 } from './types';
 import type { Game, PeriodResult } from '../supabase/queries';
 
@@ -306,6 +308,154 @@ export function transformGameFeed(
     if (result.team_code === homeTeamCode) {
       result.won_two_plus_reg_periods = homeWonTwoPlus;
     } else {
+      result.won_two_plus_reg_periods = awayWonTwoPlus;
+    }
+  }
+
+  return { game, periodResults };
+}
+
+/**
+ * Transform NHL game landing data to database Game and PeriodResult format
+ * Uses the landing endpoint's summary.scoring array for cleaner period parsing
+ * This is the preferred method for parsing game data
+ */
+export function transformGameLanding(
+  landingData: NewNHLLandingResponse,
+  homeStanding?: number,
+  awayStanding?: number
+): {
+  game: Game;
+  periodResults: Array<Omit<PeriodResult, 'id'>>;
+} {
+  // Extract team information
+  const homeTeamCode = landingData.homeTeam.abbrev;
+  const awayTeamCode = landingData.awayTeam.abbrev;
+
+  // Transform game metadata
+  const game: Game = {
+    game_id: landingData.id.toString(),
+    game_date: landingData.gameDate,
+    season: formatSeasonString(landingData.season.toString()),
+    home_team_code: homeTeamCode,
+    away_team_code: awayTeamCode,
+    game_type: landingData.gameType === 2 ? 'Regular Season' : landingData.gameType === 3 ? 'Playoffs' : 'Preseason',
+    home_team_standing: homeStanding || null,
+    away_team_standing: awayStanding || null,
+  };
+
+  // Parse summary.scoring to calculate period results
+  const periodResults: Array<Omit<PeriodResult, 'id'>> = [];
+
+  // Process each period from summary.scoring
+  for (const periodScoring of landingData.summary.scoring) {
+    const periodNumber = periodScoring.periodDescriptor.number;
+    const periodType = periodNumber <= 3 ? 'REGULATION' : periodNumber === 4 ? 'OT' : 'SO';
+
+    // Count goals for each team in this period
+    let homeGoals = 0;
+    let awayGoals = 0;
+    let homeEnGoals = 0;
+    let awayEnGoals = 0;
+
+    for (const goal of periodScoring.goals) {
+      const isEmptyNet = goal.goalModifier === 'empty-net' ||
+                        goal.situationCode.slice(-1) === '1'; // Last digit 1 = EN
+
+      if (goal.teamAbbrev === homeTeamCode) {
+        homeGoals++;
+        if (isEmptyNet) homeEnGoals++;
+      } else if (goal.teamAbbrev === awayTeamCode) {
+        awayGoals++;
+        if (isEmptyNet) awayEnGoals++;
+      }
+    }
+
+    // Calculate outcomes for both teams
+    const homeOutcome = calculatePeriodOutcome(periodNumber, homeGoals, awayGoals, homeEnGoals);
+    const awayOutcome = calculatePeriodOutcome(periodNumber, awayGoals, homeGoals, awayEnGoals);
+
+    // Add home team period result
+    periodResults.push({
+      game_id: game.game_id,
+      team_code: homeTeamCode,
+      period_number: periodNumber,
+      period_type: periodType as 'REGULATION' | 'OT' | 'SO',
+      goals_for: homeGoals,
+      goals_against: awayGoals,
+      empty_net_goals: homeEnGoals,
+      period_outcome: homeOutcome,
+      won_two_plus_reg_periods: false, // Calculated after all periods processed
+    });
+
+    // Add away team period result
+    periodResults.push({
+      game_id: game.game_id,
+      team_code: awayTeamCode,
+      period_number: periodNumber,
+      period_type: periodType as 'REGULATION' | 'OT' | 'SO',
+      goals_for: awayGoals,
+      goals_against: homeGoals,
+      empty_net_goals: awayEnGoals,
+      period_outcome: awayOutcome,
+      won_two_plus_reg_periods: false, // Calculated after all periods processed
+    });
+  }
+
+  // Ensure we have all regulation periods (even if scoreless)
+  const existingPeriods = new Set(periodResults.map(p => p.period_number));
+  for (let i = 1; i <= 3; i++) {
+    if (!existingPeriods.has(i)) {
+      // Add scoreless period for both teams
+      periodResults.push({
+        game_id: game.game_id,
+        team_code: homeTeamCode,
+        period_number: i,
+        period_type: 'REGULATION',
+        goals_for: 0,
+        goals_against: 0,
+        empty_net_goals: 0,
+        period_outcome: 'TIE',
+        won_two_plus_reg_periods: false,
+      });
+
+      periodResults.push({
+        game_id: game.game_id,
+        team_code: awayTeamCode,
+        period_number: i,
+        period_type: 'REGULATION',
+        goals_for: 0,
+        goals_against: 0,
+        empty_net_goals: 0,
+        period_outcome: 'TIE',
+        won_two_plus_reg_periods: false,
+      });
+    }
+  }
+
+  // Sort period results by period number and team
+  periodResults.sort((a, b) => {
+    if (a.period_number !== b.period_number) return a.period_number - b.period_number;
+    return a.team_code.localeCompare(b.team_code);
+  });
+
+  // Calculate won_two_plus_reg_periods for both teams
+  const homeRegulationPeriods = periodResults
+    .filter(p => p.team_code === homeTeamCode && p.period_number <= 3)
+    .map(p => ({ periodNumber: p.period_number, periodOutcome: p.period_outcome }));
+
+  const awayRegulationPeriods = periodResults
+    .filter(p => p.team_code === awayTeamCode && p.period_number <= 3)
+    .map(p => ({ periodNumber: p.period_number, periodOutcome: p.period_outcome }));
+
+  const homeWonTwoPlus = calculateWonTwoPlusRegPeriods(homeRegulationPeriods);
+  const awayWonTwoPlus = calculateWonTwoPlusRegPeriods(awayRegulationPeriods);
+
+  // Update won_two_plus_reg_periods flag
+  for (const result of periodResults) {
+    if (result.team_code === homeTeamCode) {
+      result.won_two_plus_reg_periods = homeWonTwoPlus;
+    } else if (result.team_code === awayTeamCode) {
       result.won_two_plus_reg_periods = awayWonTwoPlus;
     }
   }
