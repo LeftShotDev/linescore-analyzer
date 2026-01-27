@@ -9,18 +9,33 @@ export function Dashboard() {
 	const [selectedViewMode, setSelectedViewMode] = useState<'playoffs' | 'schedule' | 'full-stats'>('playoffs');
 	const [conferenceFilter, setConferenceFilter] = useState<'all' | 'eastern' | 'western'>('all');
 	const [divisionFilter, setDivisionFilter] = useState<'all' | 'metropolitan' | 'atlantic' | 'central' | 'pacific'>('all');
+	const [seasonFilter, setSeasonFilter] = useState<string>('');
+	const [availableSeasons, setAvailableSeasons] = useState<string[]>([]);
 	const [teamData, setTeamData] = useState<any[]>([]);
 	const [isLoading, setIsLoading] = useState(true);
 
-	// Fetch team stats from the database on mount
+	// Fetch team stats from the database
 	useEffect(() => {
 		const fetchTeamStats = async () => {
+			setIsLoading(true);
 			try {
-				const response = await fetch('/api/team-stats');
+				const params = new URLSearchParams();
+				if (seasonFilter) {
+					params.set('season', seasonFilter);
+				}
+				const url = `/api/team-stats${params.toString() ? `?${params.toString()}` : ''}`;
+				const response = await fetch(url);
 				const data = await response.json();
 
 				if (data.teamStats) {
 					setTeamData(data.teamStats);
+				}
+				if (data.seasons) {
+					setAvailableSeasons(data.seasons);
+				}
+				// Use the active season from API (defaults to most recent)
+				if (data.activeSeason && !seasonFilter) {
+					setSeasonFilter(data.activeSeason);
 				}
 			} catch (error) {
 				console.error('Error fetching team stats:', error);
@@ -30,7 +45,7 @@ export function Dashboard() {
 		};
 
 		fetchTeamStats();
-	}, []);
+	}, [seasonFilter]);
 
 	// Filter data based on conference and division
 	const filteredData = teamData.filter((team) => {
@@ -76,6 +91,9 @@ export function Dashboard() {
 							setConferenceFilter={setConferenceFilter}
 							divisionFilter={divisionFilter}
 							setDivisionFilter={setDivisionFilter}
+							seasonFilter={seasonFilter}
+							setSeasonFilter={setSeasonFilter}
+							availableSeasons={availableSeasons}
 							selectedTeamsCount={selectedTeamsCount}
 						/>
 					</div>

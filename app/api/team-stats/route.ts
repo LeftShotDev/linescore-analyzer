@@ -1,10 +1,12 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase/client';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const searchParams = request.nextUrl.searchParams;
+  const seasonFilter = searchParams.get('season');
   if (!isSupabaseConfigured()) {
     return NextResponse.json(
-      { error: 'Database not configured', teamStats: [] },
+      { error: 'Database not configured', teamStats: [], seasons: [] },
       { status: 503 }
     );
   }
@@ -20,8 +22,36 @@ export async function GET() {
       throw teamsError;
     }
 
-    // Fetch all period results
-    const { data: periodResults, error: periodError } = await supabase
+    // Get all unique seasons for the filter dropdown (most recent first)
+    const { data: allGames, error: allGamesError } = await supabase
+      .from('games')
+      .select('season');
+
+    if (allGamesError) {
+      throw allGamesError;
+    }
+
+    const seasons = [...new Set(allGames?.map(g => g.season) || [])].sort().reverse();
+
+    // Default to most recent season if no filter provided
+    const activeSeason = seasonFilter || seasons[0] || null;
+
+    // Fetch games filtered by season
+    let gamesQuery = supabase.from('games').select('*');
+    if (activeSeason) {
+      gamesQuery = gamesQuery.eq('season', activeSeason);
+    }
+    const { data: games, error: gamesError } = await gamesQuery;
+
+    if (gamesError) {
+      throw gamesError;
+    }
+
+    // Get game IDs for the filtered games
+    const filteredGameIds = new Set(games?.map(g => g.game_id) || []);
+
+    // Fetch period results only for filtered games
+    const { data: allPeriodResults, error: periodError } = await supabase
       .from('period_results')
       .select('*');
 
@@ -29,14 +59,8 @@ export async function GET() {
       throw periodError;
     }
 
-    // Fetch all games to determine wins/losses
-    const { data: games, error: gamesError } = await supabase
-      .from('games')
-      .select('*');
-
-    if (gamesError) {
-      throw gamesError;
-    }
+    // Filter period results to only include games in our filtered set
+    const periodResults = allPeriodResults?.filter(pr => filteredGameIds.has(pr.game_id)) || [];
 
     // Calculate stats for each team
     const teamStats = teams?.map((team) => {
@@ -165,7 +189,7 @@ export async function GET() {
       team.rank = index + 1;
     });
 
-    return NextResponse.json({ teamStats });
+    return NextResponse.json({ teamStats, seasons, activeSeason });
   } catch (error) {
     console.error('Error calculating team stats:', error);
     return NextResponse.json(
