@@ -156,6 +156,7 @@ export const gameQueries = {
    * Insert game (requires service role)
    */
   async insert(game: Omit<Game, 'created_at'>): Promise<Game> {
+    console.log(`[gameQueries.insert] Inserting game ${game.game_id}`);
     const admin = supabaseAdmin();
     const { data, error } = await admin
       .from('games')
@@ -163,7 +164,12 @@ export const gameQueries = {
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      console.error(`[gameQueries.insert] Database error for game ${game.game_id}:`, error);
+      throw error;
+    }
+
+    console.log(`[gameQueries.insert] Successfully inserted game ${game.game_id}`);
     return data;
   },
 };
@@ -250,13 +256,32 @@ export const periodResultQueries = {
    * Bulk insert period results (requires service role)
    */
   async insertMany(periodResults: Array<Omit<PeriodResult, 'id' | 'created_at'>>): Promise<PeriodResult[]> {
+    if (!periodResults || periodResults.length === 0) {
+      console.warn('[periodResultQueries.insertMany] No period results to insert');
+      return [];
+    }
+
+    console.log(`[periodResultQueries.insertMany] Attempting to insert ${periodResults.length} period results`);
+    console.log(`[periodResultQueries.insertMany] Sample data:`, JSON.stringify(periodResults[0], null, 2));
+
     const admin = supabaseAdmin();
     const { data, error } = await admin
       .from('period_results')
       .insert(periodResults)
       .select();
 
-    if (error) throw error;
+    if (error) {
+      console.error('[periodResultQueries.insertMany] Database error:', error);
+      console.error('[periodResultQueries.insertMany] Error details:', {
+        code: error.code,
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+      });
+      throw error;
+    }
+
+    console.log(`[periodResultQueries.insertMany] Successfully inserted ${data?.length || 0} period results`);
     return data || [];
   },
 

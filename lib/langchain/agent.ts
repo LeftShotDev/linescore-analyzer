@@ -224,27 +224,46 @@ export async function processMessage(
   toolsUsed?: string[];
 }> {
   // Check if this is an approval/rejection response
-  const pendingApprovals = getPendingApprovals();
-  if (pendingApprovals.length > 0) {
+  const pendingApprovalsList = getPendingApprovals();
+  if (pendingApprovalsList.length > 0) {
     const approvalId = findApprovalInMessage(userMessage);
     const isRejection = isRejectionMessage(userMessage);
 
     if (approvalId && !isRejection) {
+      // Get approval details before approving
+      const approvalDetails = pendingApprovalsList.find(a => a.id === approvalId);
       approveOperation(approvalId);
-      // Add to history
+
+      // Add user approval to history
       addToHistory(sessionId, 'user', userMessage);
-      const response = `Operation approved. I'll now proceed with the import. This may take a moment...`;
-      addToHistory(sessionId, 'assistant', response);
-      return {
-        response,
-        approvalRequired: false,
-        toolsUsed: ['request_human_approval'],
-      };
+
+      // Now run the agent with a message that the approval was granted
+      // This allows the agent to continue with the actual operation
+      const continueMessage = `The user approved the operation (${approvalDetails?.description || 'bulk import'}). Please proceed with the import now.`;
+
+      try {
+        const { response, toolsUsed } = await runAgent(sessionId, continueMessage);
+        addToHistory(sessionId, 'assistant', response);
+        return {
+          response,
+          approvalRequired: false,
+          toolsUsed: ['request_human_approval', ...toolsUsed],
+        };
+      } catch (error) {
+        console.error('Error continuing after approval:', error);
+        const errorResponse = 'Operation approved, but I encountered an error while processing. Please try the request again.';
+        addToHistory(sessionId, 'assistant', errorResponse);
+        return {
+          response: errorResponse,
+          approvalRequired: false,
+          toolsUsed: ['request_human_approval'],
+        };
+      }
     }
 
-    if (isRejection && pendingApprovals.length > 0) {
+    if (isRejection && pendingApprovalsList.length > 0) {
       // Reject the most recent pending approval
-      const mostRecent = pendingApprovals[pendingApprovals.length - 1];
+      const mostRecent = pendingApprovalsList[pendingApprovalsList.length - 1];
       rejectOperation(mostRecent.id);
       // Add to history
       addToHistory(sessionId, 'user', userMessage);

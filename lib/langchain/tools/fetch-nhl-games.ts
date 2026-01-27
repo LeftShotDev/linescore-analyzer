@@ -146,25 +146,30 @@ async function fetchAndStoreGame(
     // Check if game already exists
     const exists = await gameQueries.exists(gameId);
     if (exists && skipExisting) {
+      console.log(`[fetchAndStoreGame] Game ${gameId} already exists, skipping`);
       return { success: true, skipped: true };
     }
 
     // Fetch game from NHL API
+    console.log(`[fetchAndStoreGame] Fetching game ${gameId} from NHL API`);
     const landingData: NewNHLLandingResponse = await nhlApi.getGameLanding(gameId);
 
     // Check if game is final
     if (landingData.gameState !== 'OFF') {
+      console.log(`[fetchAndStoreGame] Game ${gameId} not final (state: ${landingData.gameState}), skipping`);
       return { success: true, skipped: true }; // Skip non-final games
     }
 
     // Transform data
     const { game, periodResults } = transformGameLanding(landingData);
+    console.log(`[fetchAndStoreGame] Transformed game ${gameId}: ${periodResults.length} period results generated`);
 
     // Validate team codes exist
     const homeExists = await teamQueries.exists(game.home_team_code);
     const awayExists = await teamQueries.exists(game.away_team_code);
 
     if (!homeExists || !awayExists) {
+      console.error(`[fetchAndStoreGame] Team not found for game ${gameId}: home=${game.home_team_code}(${homeExists}), away=${game.away_team_code}(${awayExists})`);
       return {
         success: false,
         error: `Team not found: ${!homeExists ? game.home_team_code : game.away_team_code}`,
@@ -174,6 +179,7 @@ async function fetchAndStoreGame(
     // Validate game data
     const validation = validateGameData(game, periodResults);
     if (!validation.valid) {
+      console.error(`[fetchAndStoreGame] Validation failed for game ${gameId}: ${validation.errors.join('; ')}`);
       return {
         success: false,
         error: `Validation failed: ${validation.errors.join('; ')}`,
@@ -181,13 +187,21 @@ async function fetchAndStoreGame(
     }
 
     // Insert game
+    console.log(`[fetchAndStoreGame] Inserting game ${gameId}`);
     await gameQueries.insert(game);
 
     // Insert period results
-    await periodResultQueries.insertMany(periodResults);
+    if (periodResults.length > 0) {
+      console.log(`[fetchAndStoreGame] Inserting ${periodResults.length} period results for game ${gameId}`);
+      const insertedResults = await periodResultQueries.insertMany(periodResults);
+      console.log(`[fetchAndStoreGame] Inserted ${insertedResults.length} period results for game ${gameId}`);
+    } else {
+      console.warn(`[fetchAndStoreGame] No period results to insert for game ${gameId}`);
+    }
 
     return { success: true, skipped: false };
   } catch (error) {
+    console.error(`[fetchAndStoreGame] Error processing game ${gameId}:`, error);
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error',

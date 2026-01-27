@@ -347,8 +347,14 @@ export function transformGameLanding(
   // Parse summary.scoring to calculate period results
   const periodResults: Array<Omit<PeriodResult, 'id'>> = [];
 
-  // Process each period from summary.scoring
-  for (const periodScoring of landingData.summary.scoring) {
+  // Defensive check for summary.scoring existence
+  const scoringPeriods = landingData.summary?.scoring;
+  if (!scoringPeriods || !Array.isArray(scoringPeriods)) {
+    console.warn(`[Transformer] No summary.scoring data for game ${game.game_id} - will create default period results`);
+  }
+
+  // Process each period from summary.scoring (if available)
+  for (const periodScoring of (scoringPeriods || [])) {
     const periodNumber = periodScoring.periodDescriptor.number;
     const periodType = periodNumber <= 3 ? 'REGULATION' : periodNumber === 4 ? 'OT' : 'SO';
 
