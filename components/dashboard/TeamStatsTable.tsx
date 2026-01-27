@@ -1,5 +1,11 @@
 'use client';
 
+import { useState, useMemo } from 'react';
+
+type SortField = 'rank' | 'teamName' | 'conference' | 'division' | 'record' | 'points' |
+  'periodsWon' | 'periodsLost' | 'periodsTied' | 'goodWins' | 'badWins' | 'difference';
+type SortDirection = 'asc' | 'desc';
+
 interface TeamRecord {
   wins: number;
   losses: number;
@@ -19,6 +25,8 @@ interface TeamData {
   goodWins: number;
   badWins: number;
   difference: number;
+  rank?: number;
+  rankScore?: number;
 }
 
 interface TeamStatsTableProps {
@@ -68,6 +76,103 @@ function getTeamColor(teamCode: string): string {
 }
 
 export function TeamStatsTable({ data, viewMode, isLoading }: TeamStatsTableProps) {
+  const [sortField, setSortField] = useState<SortField>('goodWins');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      // Default to descending for numeric fields, ascending for text
+      setSortDirection(['teamName', 'conference', 'division'].includes(field) ? 'asc' : 'desc');
+    }
+  };
+
+  const sortedData = useMemo(() => {
+    const sorted = [...data].sort((a, b) => {
+      let aVal: any;
+      let bVal: any;
+
+      switch (sortField) {
+        case 'rank':
+          aVal = a.rank || 0;
+          bVal = b.rank || 0;
+          break;
+        case 'teamName':
+          aVal = a.teamName?.toLowerCase() || '';
+          bVal = b.teamName?.toLowerCase() || '';
+          break;
+        case 'conference':
+          aVal = a.conference?.toLowerCase() || '';
+          bVal = b.conference?.toLowerCase() || '';
+          break;
+        case 'division':
+          aVal = a.division?.toLowerCase() || '';
+          bVal = b.division?.toLowerCase() || '';
+          break;
+        case 'record':
+          aVal = a.record.wins;
+          bVal = b.record.wins;
+          break;
+        case 'points':
+          aVal = a.points;
+          bVal = b.points;
+          break;
+        case 'periodsWon':
+          aVal = a.periodsWon;
+          bVal = b.periodsWon;
+          break;
+        case 'periodsLost':
+          aVal = a.periodsLost;
+          bVal = b.periodsLost;
+          break;
+        case 'periodsTied':
+          aVal = a.periodsTied;
+          bVal = b.periodsTied;
+          break;
+        case 'goodWins':
+          aVal = a.goodWins;
+          bVal = b.goodWins;
+          break;
+        case 'badWins':
+          aVal = a.badWins;
+          bVal = b.badWins;
+          break;
+        case 'difference':
+          aVal = a.difference;
+          bVal = b.difference;
+          break;
+        default:
+          return 0;
+      }
+
+      if (typeof aVal === 'string') {
+        return sortDirection === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+      }
+      return sortDirection === 'asc' ? aVal - bVal : bVal - aVal;
+    });
+    return sorted;
+  }, [data, sortField, sortDirection]);
+
+  const SortHeader = ({ field, children, className = '' }: { field: SortField; children: React.ReactNode; className?: string }) => (
+    <th
+      className={`px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none ${className}`}
+      onClick={() => handleSort(field)}
+    >
+      <div className="flex items-center gap-1">
+        {children}
+        <span className="text-gray-400">
+          {sortField === field ? (
+            sortDirection === 'asc' ? '↑' : '↓'
+          ) : (
+            <span className="opacity-0 group-hover:opacity-50">↕</span>
+          )}
+        </span>
+      </div>
+    </th>
+  );
+
   if (viewMode !== 'playoffs') {
     return (
       <div className="p-6 text-center text-gray-500">
@@ -111,44 +216,55 @@ export function TeamStatsTable({ data, viewMode, isLoading }: TeamStatsTableProp
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <SortHeader field="rank" className="text-center bg-purple-50">
+                Rank
+              </SortHeader>
+              <SortHeader field="teamName">
                 Team
-              </th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              </SortHeader>
+              <SortHeader field="conference">
                 Conference
-              </th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              </SortHeader>
+              <SortHeader field="division">
                 Division
-              </th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              </SortHeader>
+              <SortHeader field="record">
                 Record
-              </th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              </SortHeader>
+              <SortHeader field="points">
                 Points
-              </th>
-              <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider bg-blue-50">
+              </SortHeader>
+              <SortHeader field="periodsWon" className="text-center bg-blue-50">
                 Periods Won
-              </th>
-              <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider bg-blue-50">
+              </SortHeader>
+              <SortHeader field="periodsLost" className="text-center bg-blue-50">
                 Periods Lost
-              </th>
-              <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider bg-blue-50">
+              </SortHeader>
+              <SortHeader field="periodsTied" className="text-center bg-blue-50">
                 Periods Tied
-              </th>
-              <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider bg-green-50">
+              </SortHeader>
+              <SortHeader field="goodWins" className="text-center bg-green-50">
                 Good Wins
-              </th>
-              <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider bg-red-50">
+              </SortHeader>
+              <SortHeader field="badWins" className="text-center bg-red-50">
                 Bad Wins
-              </th>
-              <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider bg-blue-100">
+              </SortHeader>
+              <SortHeader field="difference" className="text-center bg-blue-100">
                 Difference
-              </th>
+              </SortHeader>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {data.map((team, idx) => (
+            {sortedData.map((team, idx) => (
               <tr key={idx} className="hover:bg-gray-50">
+                <td className="px-3 py-3 whitespace-nowrap text-center bg-purple-50">
+                  <div className="flex flex-col items-center">
+                    <span className="text-lg font-bold text-purple-700">{team.rank || idx + 1}</span>
+                    {team.rankScore !== undefined && (
+                      <span className="text-[10px] text-purple-500">{team.rankScore}</span>
+                    )}
+                  </div>
+                </td>
                 <td className="px-4 py-3 whitespace-nowrap">
                   <div className="flex items-center">
                     <div

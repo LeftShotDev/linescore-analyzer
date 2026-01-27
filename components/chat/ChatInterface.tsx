@@ -199,8 +199,8 @@ export function ChatInterface() {
         </p>
       </div>
 
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto bg-gray-50">
+      {/* Messages - scrollbar-gutter prevents layout shift when scrollbar appears */}
+      <div className="flex-1 overflow-y-auto bg-gray-50" style={{ scrollbarGutter: 'stable' }}>
         <MessageList
           messages={messages}
           error={error}

@@ -360,12 +360,14 @@ export function transformGameLanding(
 
     for (const goal of periodScoring.goals) {
       const isEmptyNet = goal.goalModifier === 'empty-net' ||
-                        goal.situationCode.slice(-1) === '1'; // Last digit 1 = EN
+                        (goal.situationCode && goal.situationCode.toString().slice(-1) === '1'); // Last digit 1 = EN
 
-      if (goal.teamAbbrev === homeTeamCode) {
+      const goalTeamAbbrev = goal.teamAbbrev.default;
+
+      if (goalTeamAbbrev === homeTeamCode) {
         homeGoals++;
         if (isEmptyNet) homeEnGoals++;
-      } else if (goal.teamAbbrev === awayTeamCode) {
+      } else if (goalTeamAbbrev === awayTeamCode) {
         awayGoals++;
         if (isEmptyNet) awayEnGoals++;
       }

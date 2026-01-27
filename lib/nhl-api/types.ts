@@ -103,7 +103,7 @@ export interface NewNHLGoal {
   firstName: { default: string };
   lastName: { default: string };
   name: { default: string };
-  teamAbbrev: string;
+  teamAbbrev: { default: string };
   timeInPeriod: string;
   shotType: string;
   goalModifier: string; // "empty-net" for EN goals

@@ -38,13 +38,15 @@ export function isSupabaseConfigured(): boolean {
  * This client has elevated permissions and should only be used in secure server contexts
  */
 export const supabaseAdmin = (): SupabaseClient => {
-  if (!supabaseUrl) {
+  // Read env vars fresh each time (not from module-level cache)
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!url) {
     throw new Error(
       'Missing NEXT_PUBLIC_SUPABASE_URL environment variable.'
     );
   }
-
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   if (!serviceRoleKey) {
     throw new Error(
@@ -52,7 +54,7 @@ export const supabaseAdmin = (): SupabaseClient => {
     );
   }
 
-  return createClient(supabaseUrl, serviceRoleKey, {
+  return createClient(url, serviceRoleKey, {
     auth: {
       autoRefreshToken: false,
       persistSession: false

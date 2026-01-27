@@ -23,7 +23,7 @@ export const fetchNhlGamesTool = new DynamicStructuredTool({
 
     Example: 2024020003 = 3rd regular season game of 2024-2025 season
 
-    IMPORTANT: For large date ranges (>7 days), use request_human_approval first.`,
+    IMPORTANT: For very large date ranges (>30 days), use request_human_approval first.`,
   schema: z.object({
     gameId: z.string().optional().describe('Specific NHL game ID to fetch (e.g., 2024020003)'),
     startDate: z.string().optional().describe('Start date in YYYY-MM-DD format'),
@@ -69,10 +69,10 @@ export const fetchNhlGamesTool = new DynamicStructuredTool({
         const end = new Date(endDate);
         const daysDiff = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
 
-        if (daysDiff > 7) {
+        if (daysDiff > 30) {
           return JSON.stringify({
             success: false,
-            error: `Date range too large (${daysDiff} days). Maximum allowed is 7 days.`,
+            error: `Date range too large (${daysDiff} days). Maximum allowed is 30 days.`,
             suggestion: 'For larger imports, use request_human_approval tool first, then import in smaller batches.',
             days_requested: daysDiff,
           });

@@ -9,7 +9,9 @@ import type {
   NewNHLLandingResponse
 } from './types';
 
-const NHL_API_BASE_URL = process.env.NHL_API_BASE_URL || 'https://api-web.nhle.com';
+// Normalize base URL - remove trailing /v1 or /v1/ if present since we add it in paths
+const rawBaseUrl = process.env.NHL_API_BASE_URL || 'https://api-web.nhle.com';
+const NHL_API_BASE_URL = rawBaseUrl.replace(/\/v1\/?$/, '');
 
 // Rate limiting configuration (FR-016: 2 requests per second)
 const RATE_LIMIT_MS = 500; // 500ms between requests = 2 req/sec
@@ -64,7 +66,7 @@ async function fetchWithRetry<T>(
       const response = await fetch(url, {
         ...fetchOptions,
         headers: {
-          'Content-Type': 'application/json',
+          'Accept': 'application/json',
           ...fetchOptions.headers,
         },
       });
@@ -94,6 +96,12 @@ async function fetchWithRetry<T>(
       }
 
       if (!response.ok) {
+        // Try to get error details
+        let errorBody = '';
+        try {
+          errorBody = await response.text();
+        } catch {}
+        console.error(`[NHL API] Error response body:`, errorBody.slice(0, 500));
         throw new Error(`HTTP error: ${response.status} ${response.statusText}`);
       }
 
@@ -147,30 +155,54 @@ function getDateRange(startDate: string, endDate: string): string[] {
 export const nhlApi = {
   /**
    * Get schedule for a date range
-   * Note: New API only supports single-date queries, so we iterate through the range
+   * Note: New API returns weekly schedules, so we fetch by week and filter
    * @param startDate YYYY-MM-DD format
    * @param endDate YYYY-MM-DD format
    */
   async getSchedule(startDate: string, endDate: string): Promise<NHLScheduleResponse> {
     const dates = getDateRange(startDate, endDate);
-    const allGames: any[] = [];
+    const allGames: Map<string, any> = new Map(); // Use Map to dedupe by game ID
+    const gamesByDate: Map<string, any[]> = new Map();
 
-    // Fetch schedule for each date
+    // Initialize gamesByDate for all requested dates
     for (const date of dates) {
+      gamesByDate.set(date, []);
+    }
+
+    // Fetch schedule weekly (API returns ~7 days per request)
+    // We'll fetch every 7 days to cover the range
+    const fetchDates = new Set<string>();
+    for (let i = 0; i < dates.length; i += 7) {
+      fetchDates.add(dates[i]);
+    }
+    // Also add the last date to ensure we cover the end
+    fetchDates.add(dates[dates.length - 1]);
+
+    for (const fetchDate of fetchDates) {
       try {
-        const url = `${NHL_API_BASE_URL}/v1/schedule/${date}`;
+        const url = `${NHL_API_BASE_URL}/v1/schedule/${fetchDate}`;
+        console.log(`[NHL API] Fetching schedule: ${url}`);
         const response = await fetchWithRetry<NewNHLScheduleResponse>(url);
 
-        // Extract games from the response
+        // Extract games from the gameWeek array
         if (response.gameWeek && response.gameWeek.length > 0) {
-          for (const week of response.gameWeek) {
-            if (week.games && week.games.length > 0) {
-              allGames.push(...week.games);
+          for (const daySchedule of response.gameWeek) {
+            const gameDate = daySchedule.date; // YYYY-MM-DD format
+            if (daySchedule.games && daySchedule.games.length > 0) {
+              for (const game of daySchedule.games) {
+                // Only include if within our date range and not already added
+                if (dates.includes(gameDate) && !allGames.has(game.id.toString())) {
+                  allGames.set(game.id.toString(), { ...game, _gameDate: gameDate });
+                  const gamesForDate = gamesByDate.get(gameDate) || [];
+                  gamesForDate.push({ ...game, _gameDate: gameDate });
+                  gamesByDate.set(gameDate, gamesForDate);
+                }
+              }
             }
           }
         }
       } catch (error) {
-        // If a date has no games, the API may return 404 - continue to next date
+        // If a date has no games, the API may return 404 - continue
         if (error instanceof Error && error.message.includes('not found')) {
           continue;
         }
@@ -185,9 +217,7 @@ export const nhlApi = {
       totalEvents: 0,
       totalGames: 0,
       totalMatches: 0,
-      games: allGames
-        .filter(g => g.gameDate === date)
-        .map(game => ({
+      games: (gamesByDate.get(date) || []).map(game => ({
           gamePk: game.id,
           gameType: game.gameType === 2 ? 'R' : game.gameType === 3 ? 'P' : 'PR',
           season: game.season.toString(),
@@ -236,10 +266,10 @@ export const nhlApi = {
 
     return {
       copyright: '',
-      totalItems: allGames.length,
-      totalEvents: allGames.length,
-      totalGames: allGames.length,
-      totalMatches: allGames.length,
+      totalItems: allGames.size,
+      totalEvents: allGames.size,
+      totalGames: allGames.size,
+      totalMatches: allGames.size,
       dates: scheduleDates,
     };
   },
