@@ -31,7 +31,6 @@ interface TeamData {
 
 interface TeamStatsTableProps {
   data: TeamData[];
-  viewMode: 'playoffs' | 'schedule' | 'full-stats';
   isLoading?: boolean;
 }
 
@@ -75,7 +74,7 @@ function getTeamColor(teamCode: string): string {
   return teamColors[teamCode] || '#6B7280';
 }
 
-export function TeamStatsTable({ data, viewMode, isLoading }: TeamStatsTableProps) {
+export function TeamStatsTable({ data, isLoading }: TeamStatsTableProps) {
   const [sortField, setSortField] = useState<SortField>('goodWins');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
 
@@ -172,16 +171,6 @@ export function TeamStatsTable({ data, viewMode, isLoading }: TeamStatsTableProp
       </div>
     </th>
   );
-
-  if (viewMode !== 'playoffs') {
-    return (
-      <div className="p-12 text-center text-[#888]">
-        {viewMode === 'schedule'
-          ? 'Schedule view coming soon...'
-          : 'Full stats view coming soon...'}
-      </div>
-    );
-  }
 
   if (isLoading) {
     return (

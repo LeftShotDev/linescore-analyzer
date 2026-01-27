@@ -1,8 +1,6 @@
 'use client';
 
 interface DashboardControlsProps {
-  selectedViewMode: 'playoffs' | 'schedule' | 'full-stats';
-  setSelectedViewMode: (mode: 'playoffs' | 'schedule' | 'full-stats') => void;
   conferenceFilter: 'all' | 'eastern' | 'western';
   setConferenceFilter: (filter: 'all' | 'eastern' | 'western') => void;
   divisionFilter: 'all' | 'metropolitan' | 'atlantic' | 'central' | 'pacific';
@@ -42,8 +40,6 @@ const allDivisions = [
 ];
 
 export function DashboardControls({
-  selectedViewMode,
-  setSelectedViewMode,
   conferenceFilter,
   setConferenceFilter,
   divisionFilter,
@@ -55,48 +51,6 @@ export function DashboardControls({
 }: DashboardControlsProps) {
   return (
     <div className="flex items-center gap-6 flex-wrap">
-      {/* View Mode Toggle */}
-      <div className="flex items-center gap-3">
-        <label className="text-sm font-medium text-[#888]">View</label>
-        <div className="inline-flex rounded-lg bg-[#232323] p-1" role="group">
-          <button
-            type="button"
-            onClick={() => setSelectedViewMode('playoffs')}
-            className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${
-              selectedViewMode === 'playoffs'
-                ? 'bg-[#3ecf8e] text-[#171717]'
-                : 'text-[#888] hover:text-white'
-            }`}
-          >
-            Playoffs
-          </button>
-          <button
-            type="button"
-            onClick={() => setSelectedViewMode('schedule')}
-            className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${
-              selectedViewMode === 'schedule'
-                ? 'bg-[#3ecf8e] text-[#171717]'
-                : 'text-[#888] hover:text-white'
-            }`}
-          >
-            Schedule
-          </button>
-          <button
-            type="button"
-            onClick={() => setSelectedViewMode('full-stats')}
-            className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${
-              selectedViewMode === 'full-stats'
-                ? 'bg-[#3ecf8e] text-[#171717]'
-                : 'text-[#888] hover:text-white'
-            }`}
-          >
-            Full Stats
-          </button>
-        </div>
-      </div>
-
-      <div className="w-px h-6 bg-[#2e2e2e]" />
-
       {/* Season Filter */}
       <div className="flex items-center gap-3">
         <label className="text-sm font-medium text-[#888]">Season</label>

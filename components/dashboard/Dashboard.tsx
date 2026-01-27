@@ -14,7 +14,6 @@ const chatWidths: Record<ChatSize, string> = {
 };
 
 export function Dashboard() {
-	const [selectedViewMode, setSelectedViewMode] = useState<'playoffs' | 'schedule' | 'full-stats'>('playoffs');
 	const [conferenceFilter, setConferenceFilter] = useState<'all' | 'eastern' | 'western'>('all');
 	const [divisionFilter, setDivisionFilter] = useState<'all' | 'metropolitan' | 'atlantic' | 'central' | 'pacific'>('all');
 	const [seasonFilter, setSeasonFilter] = useState<string>('');
@@ -99,8 +98,6 @@ export function Dashboard() {
 							</div>
 
 							<DashboardControls
-								selectedViewMode={selectedViewMode}
-								setSelectedViewMode={setSelectedViewMode}
 								conferenceFilter={conferenceFilter}
 								setConferenceFilter={setConferenceFilter}
 								divisionFilter={divisionFilter}
@@ -115,7 +112,7 @@ export function Dashboard() {
 						{/* Data Table */}
 						<div className="flex-1 overflow-auto bg-[#171717] p-6">
 							<div className="bg-[#1c1c1c] rounded-lg border border-[#2e2e2e] overflow-hidden">
-								<TeamStatsTable data={filteredData} viewMode={selectedViewMode} isLoading={isLoading} />
+								<TeamStatsTable data={filteredData} isLoading={isLoading} />
 							</div>
 						</div>
 					</div>
