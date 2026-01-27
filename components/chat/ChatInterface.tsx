@@ -3,12 +3,18 @@
 import { useState, useCallback, useEffect } from 'react';
 import { MessageList } from './MessageList';
 import { InputBox } from './InputBox';
+import type { ChatSize } from '../dashboard/Dashboard';
 
 interface Message {
   id: string;
   role: 'user' | 'assistant';
   content: string;
   toolsUsed?: string[];
+}
+
+interface ChatInterfaceProps {
+  chatSize?: ChatSize;
+  onChatSizeChange?: (size: ChatSize) => void;
 }
 
 const quickPrompts = [
@@ -19,7 +25,7 @@ const quickPrompts = [
   'Which teams win the most periods?',
 ];
 
-export function ChatInterface() {
+export function ChatInterface({ chatSize = 'default', onChatSizeChange }: ChatInterfaceProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -187,14 +193,63 @@ export function ChatInterface() {
             </div>
             <h2 className="text-base font-semibold text-white">Analytics Agent</h2>
           </div>
-          {messages.length > 0 && (
-            <button
-              onClick={clearChat}
-              className="text-xs text-[#888] hover:text-white px-2 py-1 rounded hover:bg-[#2e2e2e] transition-colors"
-            >
-              Clear
-            </button>
-          )}
+          <div className="flex items-center gap-1">
+            {/* Resize buttons */}
+            {onChatSizeChange && (
+              <div className="flex items-center gap-1 mr-2">
+                {/* Collapse/Default button */}
+                <button
+                  onClick={() => onChatSizeChange('default')}
+                  className={`p-1.5 rounded transition-colors ${
+                    chatSize === 'default'
+                      ? 'bg-[#3ecf8e]/20 text-[#3ecf8e]'
+                      : 'text-[#888] hover:text-white hover:bg-[#2e2e2e]'
+                  }`}
+                  title="Default size"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 9V4.5M9 9H4.5M9 9L3.75 3.75M9 15v4.5M9 15H4.5M9 15l-5.25 5.25M15 9h4.5M15 9V4.5M15 9l5.25-5.25M15 15h4.5M15 15v4.5m0-4.5l5.25 5.25" />
+                  </svg>
+                </button>
+                {/* Expand button */}
+                <button
+                  onClick={() => onChatSizeChange('expanded')}
+                  className={`p-1.5 rounded transition-colors ${
+                    chatSize === 'expanded'
+                      ? 'bg-[#3ecf8e]/20 text-[#3ecf8e]'
+                      : 'text-[#888] hover:text-white hover:bg-[#2e2e2e]'
+                  }`}
+                  title="Expand"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 3h6m0 0v6m0-6l-7 7M9 21H3m0 0v-6m0 6l7-7" />
+                  </svg>
+                </button>
+                {/* Maximize button */}
+                <button
+                  onClick={() => onChatSizeChange('maximized')}
+                  className={`p-1.5 rounded transition-colors ${
+                    chatSize === 'maximized'
+                      ? 'bg-[#3ecf8e]/20 text-[#3ecf8e]'
+                      : 'text-[#888] hover:text-white hover:bg-[#2e2e2e]'
+                  }`}
+                  title="Maximize"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+                  </svg>
+                </button>
+              </div>
+            )}
+            {messages.length > 0 && (
+              <button
+                onClick={clearChat}
+                className="text-xs text-[#888] hover:text-white px-2 py-1 rounded hover:bg-[#2e2e2e] transition-colors"
+              >
+                Clear
+              </button>
+            )}
+          </div>
         </div>
         <p className="text-xs text-[#888] ml-11">
           ReAct-powered with human-in-the-loop approval
