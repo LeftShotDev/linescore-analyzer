@@ -24,12 +24,12 @@ export function InputBox({
           onChange={handleInputChange}
           placeholder="Ask about team stats, playoffs, or predictions..."
           disabled={isLoading}
-          className="w-full px-4 py-2.5 pr-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed text-sm"
+          className="w-full px-4 py-2.5 pr-10 bg-[#232323] border border-[#2e2e2e] rounded-lg text-white placeholder-[#666] focus:outline-none focus:ring-1 focus:ring-[#3ecf8e] focus:border-[#3ecf8e] disabled:bg-[#1a1a1a] disabled:cursor-not-allowed text-sm"
         />
         <button
           type="submit"
           disabled={isLoading || !input.trim()}
-          className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-gray-400 hover:text-blue-600 disabled:text-gray-300 disabled:cursor-not-allowed transition-colors"
+          className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-[#888] hover:text-[#3ecf8e] disabled:text-[#444] disabled:cursor-not-allowed transition-colors"
         >
           {isLoading ? (
             <svg
