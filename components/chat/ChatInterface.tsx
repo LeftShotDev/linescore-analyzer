@@ -8,6 +8,7 @@ interface Message {
   id: string;
   role: 'user' | 'assistant';
   content: string;
+  toolsUsed?: string[];
 }
 
 const quickPrompts = [
@@ -84,6 +85,7 @@ export function ChatInterface() {
         id: `assistant_${Date.now()}`,
         role: 'assistant',
         content: data.response,
+        toolsUsed: data.toolsUsed || [],
       };
 
       setMessages(prev => [...prev, assistantMessage]);
@@ -150,6 +152,7 @@ export function ChatInterface() {
             id: `assistant_${Date.now()}`,
             role: 'assistant',
             content: data.response,
+            toolsUsed: data.toolsUsed || [],
           };
           setMessages(prev => [...prev, assistantMessage]);
         })

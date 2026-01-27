@@ -41,6 +41,7 @@ export async function POST(req: NextRequest) {
       sessionId: session,
       approvalRequired: result.approvalRequired,
       approvalId: result.approvalId,
+      toolsUsed: result.toolsUsed || [],
       // Include intermediate steps in development mode
       ...(process.env.NODE_ENV === 'development' && {
         intermediateSteps: result.intermediateSteps,

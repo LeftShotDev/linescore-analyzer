@@ -24,7 +24,7 @@ INSERT INTO teams (team_code, team_name, division, conference) VALUES
   ('WSH', 'Washington Capitals', 'Metropolitan', 'Eastern'),
 
   -- Central Division (Western Conference)
-  ('ARI', 'Arizona Coyotes', 'Central', 'Western'),
+  ('UTA', 'Utah Hockey Club', 'Central', 'Western'),
   ('CHI', 'Chicago Blackhawks', 'Central', 'Western'),
   ('COL', 'Colorado Avalanche', 'Central', 'Western'),
   ('DAL', 'Dallas Stars', 'Central', 'Western'),

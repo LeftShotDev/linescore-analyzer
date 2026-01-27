@@ -2,8 +2,8 @@
 // Implements the ReAct (Reasoning + Acting) pattern with memory management
 
 import { ChatAnthropic } from '@langchain/anthropic';
-import { createAgent } from 'langchain';
-import { HumanMessage, AIMessage } from '@langchain/core/messages';
+import { createReactAgent } from '@langchain/langgraph/prebuilt';
+import { HumanMessage, AIMessage, SystemMessage } from '@langchain/core/messages';
 
 // Import tools
 import { queryPeriodDataTool } from './tools/query-period-data';
@@ -99,10 +99,10 @@ export function clearMemory(sessionId: string): void {
 /**
  * Create and run the NHL ReAct agent
  */
-async function runAgent(sessionId: string, userMessage: string): Promise<string> {
+async function runAgent(sessionId: string, userMessage: string): Promise<{ response: string; toolsUsed: string[] }> {
   // Initialize the Anthropic model
   const model = new ChatAnthropic({
-    modelName: 'claude-sonnet-4-20250514',
+    model: 'claude-sonnet-4-20250514',
     anthropicApiKey: process.env.ANTHROPIC_API_KEY,
     temperature: 0.7,
   });
@@ -110,41 +110,104 @@ async function runAgent(sessionId: string, userMessage: string): Promise<string>
   // Get conversation history
   const history = getHistory(sessionId);
 
-  // Build context with history
-  const historyContext = history.length > 0
-    ? `\n\nPrevious conversation:\n${history.map(m => `${m.role === 'user' ? 'Human' : 'Assistant'}: ${m.content}`).join('\n')}\n\n`
-    : '';
+  // Build messages array with history
+  const messages: (HumanMessage | AIMessage)[] = [];
 
-  // Create the ReAct agent
-  const agent = createAgent({
-    model,
+  // Add conversation history
+  for (const msg of history) {
+    if (msg.role === 'user') {
+      messages.push(new HumanMessage(msg.content));
+    } else {
+      messages.push(new AIMessage(msg.content));
+    }
+  }
+
+  // Add the current user message
+  messages.push(new HumanMessage(userMessage));
+
+  // Create the ReAct agent with LangGraph
+  const agent = createReactAgent({
+    llm: model,
     tools,
-    systemPrompt: `${SYSTEM_PROMPT}${historyContext}`,
   });
 
   // Run the agent
   const result = await agent.invoke({
-    messages: [{ role: 'human' as const, content: userMessage }],
+    messages: [
+      new SystemMessage(SYSTEM_PROMPT),
+      ...messages,
+    ],
   });
 
-  // Extract the final response
-  const messages = result.messages || [];
-  const lastMessage = messages[messages.length - 1];
+  // Extract tools used from the agent's messages
+  const toolsUsed: string[] = [];
+  const agentMessages = result.messages || [];
 
-  let response = '';
-  if (lastMessage) {
-    if (typeof lastMessage.content === 'string') {
-      response = lastMessage.content;
-    } else if (Array.isArray(lastMessage.content)) {
-      // Handle structured content
-      response = lastMessage.content
-        .filter((c: any) => c.type === 'text')
-        .map((c: any) => c.text)
-        .join('\n');
+  for (const msg of agentMessages) {
+    // Check for AI messages with tool calls
+    if (msg._getType?.() === 'ai' || msg.constructor?.name === 'AIMessage') {
+      const toolCalls = (msg as any).tool_calls || (msg as any).additional_kwargs?.tool_calls;
+      if (toolCalls && Array.isArray(toolCalls)) {
+        for (const toolCall of toolCalls) {
+          const toolName = toolCall.name || toolCall.function?.name;
+          if (toolName && !toolsUsed.includes(toolName)) {
+            toolsUsed.push(toolName);
+            console.log(`[Agent] Tool called: ${toolName}`);
+          }
+        }
+      }
+    }
+
+    // Also check for ToolMessage to capture tool names
+    if (msg._getType?.() === 'tool' || msg.constructor?.name === 'ToolMessage') {
+      const toolName = (msg as any).name;
+      if (toolName && !toolsUsed.includes(toolName)) {
+        toolsUsed.push(toolName);
+        console.log(`[Agent] Tool result from: ${toolName}`);
+      }
     }
   }
 
-  return response || 'I apologize, but I was unable to generate a response. Please try again.';
+  // Extract the final response from the agent's messages
+  let response = '';
+
+  // Find the last AI message with text content
+  for (let i = agentMessages.length - 1; i >= 0; i--) {
+    const msg = agentMessages[i];
+    if (msg._getType?.() === 'ai' || msg.constructor?.name === 'AIMessage') {
+      if (typeof msg.content === 'string' && msg.content.trim()) {
+        response = msg.content;
+        break;
+      } else if (Array.isArray(msg.content)) {
+        // Handle structured content
+        const textContent = msg.content
+          .filter((c: any) => c.type === 'text')
+          .map((c: any) => c.text)
+          .join('\n');
+        if (textContent.trim()) {
+          response = textContent;
+          break;
+        }
+      }
+    }
+  }
+
+  // If no response found, check for tool messages that might contain the result
+  if (!response) {
+    for (let i = agentMessages.length - 1; i >= 0; i--) {
+      const msg = agentMessages[i];
+      if (msg._getType?.() === 'tool' || msg.constructor?.name === 'ToolMessage') {
+        // The agent may have returned a tool result without a final message
+        response = 'I processed your request. The operation completed successfully.';
+        break;
+      }
+    }
+  }
+
+  return {
+    response: response || 'I apologize, but I was unable to generate a response. Please try again.',
+    toolsUsed,
+  };
 }
 
 /**
@@ -158,6 +221,7 @@ export async function processMessage(
   intermediateSteps?: any[];
   approvalRequired?: boolean;
   approvalId?: string;
+  toolsUsed?: string[];
 }> {
   // Check if this is an approval/rejection response
   const pendingApprovals = getPendingApprovals();
@@ -174,6 +238,7 @@ export async function processMessage(
       return {
         response,
         approvalRequired: false,
+        toolsUsed: ['request_human_approval'],
       };
     }
 
@@ -188,6 +253,7 @@ export async function processMessage(
       return {
         response,
         approvalRequired: false,
+        toolsUsed: ['request_human_approval'],
       };
     }
   }
@@ -197,7 +263,7 @@ export async function processMessage(
     addToHistory(sessionId, 'user', userMessage);
 
     // Run the agent
-    const response = await runAgent(sessionId, userMessage);
+    const { response, toolsUsed } = await runAgent(sessionId, userMessage);
 
     // Add response to history
     addToHistory(sessionId, 'assistant', response);
@@ -210,6 +276,7 @@ export async function processMessage(
       response,
       approvalRequired,
       approvalId: approvalMatch?.[0],
+      toolsUsed,
     };
   } catch (error) {
     console.error('Agent error:', error);

@@ -27,25 +27,44 @@ interface TeamStatsTableProps {
   isLoading?: boolean;
 }
 
-// Team color mapping for team abbreviations
+// Team color mapping for team abbreviations (hex colors)
 const teamColors: Record<string, string> = {
-  COL: 'bg-blue-600',
-  TBL: 'bg-blue-500',
-  EDM: 'bg-orange-500',
-  CAR: 'bg-red-600',
-  DAL: 'bg-green-600',
-  ANA: 'bg-yellow-500',
-  BOS: 'bg-yellow-600',
-  TOR: 'bg-blue-700',
-  NYR: 'bg-blue-400',
-  FLA: 'bg-red-500',
-  VGK: 'bg-gray-700',
-  MIN: 'bg-green-500',
-  // Add more team colors as needed
+  ANA: '#F47A38',
+  BOS: '#FFB81C',
+  BUF: '#003087',
+  CGY: '#D2001C',
+  CAR: '#CE1126',
+  CHI: '#CF0A2C',
+  COL: '#6F263D',
+  CBJ: '#002654',
+  DAL: '#006847',
+  DET: '#CE1126',
+  EDM: '#FF4C00',
+  FLA: '#C8102E',
+  LAK: '#111111',
+  MIN: '#154734',
+  MTL: '#AF1E2D',
+  NSH: '#FFB81C',
+  NJD: '#CE1126',
+  NYI: '#00539B',
+  NYR: '#0038A8',
+  OTT: '#C52032',
+  PHI: '#F74902',
+  PIT: '#FCB514',
+  SJS: '#006D75',
+  SEA: '#001628',
+  STL: '#002F87',
+  TBL: '#002868',
+  TOR: '#00205B',
+  UTA: '#6CACE4',
+  VAN: '#00205B',
+  VGK: '#B4975A',
+  WSH: '#C8102E',
+  WPG: '#041E42',
 };
 
 function getTeamColor(teamCode: string): string {
-  return teamColors[teamCode] || 'bg-gray-500';
+  return teamColors[teamCode] || '#6B7280';
 }
 
 export function TeamStatsTable({ data, viewMode, isLoading }: TeamStatsTableProps) {
@@ -132,7 +151,10 @@ export function TeamStatsTable({ data, viewMode, isLoading }: TeamStatsTableProp
               <tr key={idx} className="hover:bg-gray-50">
                 <td className="px-4 py-3 whitespace-nowrap">
                   <div className="flex items-center">
-                    <div className={`flex-shrink-0 h-8 w-8 rounded flex items-center justify-center text-white text-xs font-bold ${getTeamColor(team.teamCode)}`}>
+                    <div
+                      className="flex-shrink-0 h-8 w-8 rounded flex items-center justify-center text-white text-xs font-bold"
+                      style={{ backgroundColor: getTeamColor(team.teamCode) }}
+                    >
                       {team.teamCode}
                     </div>
                     <div className="ml-3">

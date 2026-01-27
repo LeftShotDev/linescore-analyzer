@@ -155,19 +155,32 @@ export function getPendingApprovals(): Array<{
 /**
  * Find a pending approval ID from user message
  * Looks for approval IDs or approval keywords
+ * Only triggers if there are pending approvals AND message looks like an approval response
  */
 export function findApprovalInMessage(message: string): string | null {
+  // First check if there are any pending approvals
+  const hasPending = Array.from(pendingApprovals.values()).some(a => a.status === 'pending');
+  if (!hasPending) {
+    return null;
+  }
+
   // Check for explicit approval ID
   const idMatch = message.match(/approval_\d+_[a-z0-9]+/i);
   if (idMatch) {
     return idMatch[0];
   }
 
-  // If user says "yes" or "approve", find the most recent pending approval
-  const approveKeywords = ['approve', 'yes', 'proceed', 'confirm', 'ok', 'okay'];
-  const lowerMessage = message.toLowerCase();
+  const lowerMessage = message.toLowerCase().trim();
 
-  if (approveKeywords.some(keyword => lowerMessage.includes(keyword))) {
+  // Check for explicit approval phrases (more restrictive)
+  const approvePatterns = [
+    /^(yes|yep|yeah|yup|sure|ok|okay|approve|proceed|confirm|go ahead|do it)[\s,.!]*$/i,
+    /^(yes|approve|proceed),?\s*(please)?$/i,
+    /approve\s*(the\s*)?(operation|import|request)/i,
+    /^let'?s?\s*(do|go|proceed)/i,
+  ];
+
+  if (approvePatterns.some(pattern => pattern.test(lowerMessage))) {
     // Get most recent pending approval
     let mostRecent: { id: string; createdAt: Date } | null = null;
     for (const [id, approval] of pendingApprovals) {
@@ -185,9 +198,25 @@ export function findApprovalInMessage(message: string): string | null {
 
 /**
  * Check if message is a rejection
+ * Only returns true for explicit rejection responses, not incidental use of keywords
  */
 export function isRejectionMessage(message: string): boolean {
-  const rejectKeywords = ['reject', 'no', 'cancel', 'stop', 'abort', 'don\'t', 'dont'];
-  const lowerMessage = message.toLowerCase();
-  return rejectKeywords.some(keyword => lowerMessage.includes(keyword));
+  // First check if there are any pending approvals
+  const hasPending = Array.from(pendingApprovals.values()).some(a => a.status === 'pending');
+  if (!hasPending) {
+    return false;
+  }
+
+  const lowerMessage = message.toLowerCase().trim();
+
+  // Check for explicit rejection phrases (more restrictive)
+  const rejectPatterns = [
+    /^(no|nope|nah|cancel|reject|abort|stop|nevermind|never\s*mind)[\s,.!]*$/i,
+    /^(no|cancel),?\s*(thanks?|please)?$/i,
+    /cancel\s*(the\s*)?(operation|import|request)/i,
+    /don'?t\s*(do|proceed|import|continue)/i,
+    /^reject\s*(it|this)?$/i,
+  ];
+
+  return rejectPatterns.some(pattern => pattern.test(lowerMessage));
 }

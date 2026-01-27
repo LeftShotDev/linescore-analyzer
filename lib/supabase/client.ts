@@ -1,21 +1,49 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
-// Validate required environment variables
+// Get environment variables (may be undefined)
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error(
-    'Missing Supabase environment variables. Please check NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY (or NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY) in .env.local'
-  );
+// Create Supabase client only if environment variables are available
+let supabaseInstance: SupabaseClient | null = null;
+
+if (supabaseUrl && supabaseAnonKey) {
+  supabaseInstance = createClient(supabaseUrl, supabaseAnonKey);
 }
 
-// Create Supabase client for browser-side operations
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+/**
+ * Get the Supabase client
+ * Throws a descriptive error if environment variables are not configured
+ */
+export const supabase: SupabaseClient = new Proxy({} as SupabaseClient, {
+  get(_, prop) {
+    if (!supabaseInstance) {
+      throw new Error(
+        'Supabase is not configured. Please set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY environment variables.'
+      );
+    }
+    return (supabaseInstance as any)[prop];
+  },
+});
 
-// Create Supabase client with service role key for server-side operations
-// This client has elevated permissions and should only be used in secure server contexts
-export const supabaseAdmin = () => {
+/**
+ * Check if Supabase is configured
+ */
+export function isSupabaseConfigured(): boolean {
+  return supabaseInstance !== null;
+}
+
+/**
+ * Create Supabase client with service role key for server-side operations
+ * This client has elevated permissions and should only be used in secure server contexts
+ */
+export const supabaseAdmin = (): SupabaseClient => {
+  if (!supabaseUrl) {
+    throw new Error(
+      'Missing NEXT_PUBLIC_SUPABASE_URL environment variable.'
+    );
+  }
+
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   if (!serviceRoleKey) {
