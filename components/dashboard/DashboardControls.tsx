@@ -54,18 +54,18 @@ export function DashboardControls({
   selectedTeamsCount,
 }: DashboardControlsProps) {
   return (
-    <div className="flex items-center gap-4 flex-wrap">
+    <div className="flex items-center gap-6 flex-wrap">
       {/* View Mode Toggle */}
-      <div className="flex items-center gap-2">
-        <label className="text-sm font-medium text-gray-700">View Mode</label>
-        <div className="inline-flex rounded-md shadow-sm" role="group">
+      <div className="flex items-center gap-3">
+        <label className="text-sm font-medium text-[#888]">View</label>
+        <div className="inline-flex rounded-lg bg-[#232323] p-1" role="group">
           <button
             type="button"
             onClick={() => setSelectedViewMode('playoffs')}
-            className={`px-4 py-2 text-sm font-medium rounded-l-lg border ${
+            className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${
               selectedViewMode === 'playoffs'
-                ? 'bg-blue-600 text-white border-blue-600'
-                : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                ? 'bg-[#3ecf8e] text-[#171717]'
+                : 'text-[#888] hover:text-white'
             }`}
           >
             Playoffs
@@ -73,10 +73,10 @@ export function DashboardControls({
           <button
             type="button"
             onClick={() => setSelectedViewMode('schedule')}
-            className={`px-4 py-2 text-sm font-medium border-t border-b ${
+            className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${
               selectedViewMode === 'schedule'
-                ? 'bg-blue-600 text-white border-blue-600'
-                : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                ? 'bg-[#3ecf8e] text-[#171717]'
+                : 'text-[#888] hover:text-white'
             }`}
           >
             Schedule
@@ -84,10 +84,10 @@ export function DashboardControls({
           <button
             type="button"
             onClick={() => setSelectedViewMode('full-stats')}
-            className={`px-4 py-2 text-sm font-medium rounded-r-lg border ${
+            className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${
               selectedViewMode === 'full-stats'
-                ? 'bg-blue-600 text-white border-blue-600'
-                : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                ? 'bg-[#3ecf8e] text-[#171717]'
+                : 'text-[#888] hover:text-white'
             }`}
           >
             Full Stats
@@ -95,14 +95,16 @@ export function DashboardControls({
         </div>
       </div>
 
+      <div className="w-px h-6 bg-[#2e2e2e]" />
+
       {/* Season Filter */}
-      <div className="flex items-center gap-2">
-        <label className="text-sm font-medium text-gray-700">Season</label>
+      <div className="flex items-center gap-3">
+        <label className="text-sm font-medium text-[#888]">Season</label>
         <div className="relative">
           <select
             value={seasonFilter}
             onChange={(e) => setSeasonFilter(e.target.value)}
-            className="appearance-none bg-white border border-gray-300 rounded-md px-3 py-1.5 pr-8 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="appearance-none bg-[#232323] border border-[#2e2e2e] rounded-lg px-3 py-1.5 pr-8 text-sm text-white focus:outline-none focus:ring-1 focus:ring-[#3ecf8e] focus:border-[#3ecf8e]"
           >
             {availableSeasons.map((season) => (
               <option key={season} value={season}>
@@ -111,7 +113,7 @@ export function DashboardControls({
             ))}
           </select>
           <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
-            <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-4 h-4 text-[#888]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
             </svg>
           </div>
@@ -119,8 +121,8 @@ export function DashboardControls({
       </div>
 
       {/* Conference Filter */}
-      <div className="flex items-center gap-2">
-        <label className="text-sm font-medium text-gray-700">Conference</label>
+      <div className="flex items-center gap-3">
+        <label className="text-sm font-medium text-[#888]">Conference</label>
         <div className="relative">
           <select
             value={conferenceFilter}
@@ -135,14 +137,14 @@ export function DashboardControls({
                 }
               }
             }}
-            className="appearance-none bg-white border border-gray-300 rounded-md px-3 py-1.5 pr-8 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="appearance-none bg-[#232323] border border-[#2e2e2e] rounded-lg px-3 py-1.5 pr-8 text-sm text-white focus:outline-none focus:ring-1 focus:ring-[#3ecf8e] focus:border-[#3ecf8e]"
           >
-            <option value="all">All Conferences</option>
+            <option value="all">All</option>
             <option value="eastern">Eastern</option>
             <option value="western">Western</option>
           </select>
           <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
-            <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-4 h-4 text-[#888]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
             </svg>
           </div>
@@ -150,15 +152,15 @@ export function DashboardControls({
       </div>
 
       {/* Division Filter */}
-      <div className="flex items-center gap-2">
-        <label className="text-sm font-medium text-gray-700">Division</label>
+      <div className="flex items-center gap-3">
+        <label className="text-sm font-medium text-[#888]">Division</label>
         <div className="relative">
           <select
             value={divisionFilter}
             onChange={(e) => setDivisionFilter(e.target.value as any)}
-            className="appearance-none bg-white border border-gray-300 rounded-md px-3 py-1.5 pr-8 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="appearance-none bg-[#232323] border border-[#2e2e2e] rounded-lg px-3 py-1.5 pr-8 text-sm text-white focus:outline-none focus:ring-1 focus:ring-[#3ecf8e] focus:border-[#3ecf8e]"
           >
-            <option value="all">All Divisions</option>
+            <option value="all">All</option>
             {(conferenceFilter === 'all' ? allDivisions : conferenceDivisions[conferenceFilter]).map((division) => (
               <option key={division.value} value={division.value}>
                 {division.label}
@@ -166,16 +168,18 @@ export function DashboardControls({
             ))}
           </select>
           <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
-            <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-4 h-4 text-[#888]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
             </svg>
           </div>
         </div>
       </div>
 
+      <div className="w-px h-6 bg-[#2e2e2e]" />
+
       {/* Teams Count Display */}
       <div className="flex items-center gap-2">
-        <span className="text-sm text-gray-600">Showing {selectedTeamsCount} teams</span>
+        <span className="text-sm text-[#888]">{selectedTeamsCount} teams</span>
       </div>
     </div>
   );

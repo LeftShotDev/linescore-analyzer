@@ -66,21 +66,25 @@ export function Dashboard() {
 	const selectedTeamsCount = filteredData.length;
 
 	return (
-		<div className="flex h-screen bg-gray-50 justify-center">
-			<div className="flex w-full max-w-[1440px]">
+		<div className="flex h-screen bg-[#171717]">
+			<div className="flex w-full">
 				{/* Main Content Area */}
 				<div className="flex-1 flex flex-col overflow-hidden">
 					{/* Top Section with Controls */}
-					<div className="bg-white border-b border-gray-200 px-6 py-4">
-						<div className="flex items-center justify-between mb-4">
+					<div className="bg-[#1c1c1c] border-b border-[#2e2e2e] px-8 py-6">
+						<div className="flex items-center justify-between mb-6">
 							<div>
-								<div className="flex items-center gap-2">
-									<svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-										<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-									</svg>
-									<h1 className="text-xl font-semibold text-gray-900">NHL Analytics Dashboard</h1>
+								<div className="flex items-center gap-3">
+									<div className="p-2 bg-[#3ecf8e]/10 rounded-lg">
+										<svg className="w-5 h-5 text-[#3ecf8e]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+											<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+										</svg>
+									</div>
+									<div>
+										<h1 className="text-xl font-semibold text-white">NHL Analytics Dashboard</h1>
+										<p className="text-sm text-[#888] mt-0.5">Comprehensive team statistics and playoff predictions</p>
+									</div>
 								</div>
-								<p className="text-sm text-gray-600 mt-1">Comprehensive team statistics and playoff predictions.</p>
 							</div>
 						</div>
 
@@ -99,13 +103,15 @@ export function Dashboard() {
 					</div>
 
 					{/* Data Table */}
-					<div className="flex-1 overflow-auto bg-white">
-						<TeamStatsTable data={filteredData} viewMode={selectedViewMode} isLoading={isLoading} />
+					<div className="flex-1 overflow-auto bg-[#171717] p-6">
+						<div className="bg-[#1c1c1c] rounded-lg border border-[#2e2e2e] overflow-hidden">
+							<TeamStatsTable data={filteredData} viewMode={selectedViewMode} isLoading={isLoading} />
+						</div>
 					</div>
 				</div>
 
 				{/* Right Panel - Chat Interface */}
-				<div className="w-96 border-l border-gray-200 bg-white flex flex-col overflow-hidden">
+				<div className="w-[400px] border-l border-[#2e2e2e] bg-[#1c1c1c] flex flex-col overflow-hidden">
 					<ChatInterface />
 				</div>
 			</div>
