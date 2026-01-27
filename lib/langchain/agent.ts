@@ -18,6 +18,15 @@ import {
   getPendingApprovals,
 } from './tools/request-human-approval';
 
+// New tools
+import { syncRecentGamesTool } from './tools/sync-recent-games';
+import { lookupTeamTool } from './tools/lookup-team';
+import { compareTeamsTool } from './tools/compare-teams';
+import { getStandingsTool } from './tools/get-standings';
+import { checkDataHealthTool } from './tools/check-data-health';
+import { getTeamScheduleTool } from './tools/get-team-schedule';
+import { analyzeTrendsTool } from './tools/analyze-trends';
+
 // System prompt specific to the NHL Period Analyzer application
 const SYSTEM_PROMPT = `You are an expert NHL analytics assistant specializing in period-by-period game analysis. Your primary goal is to help users understand team performance through the lens of period outcomes.
 
@@ -37,6 +46,13 @@ Teams that win 2 or more individual periods in regulation (not including OT/SO) 
 2. **Fetch NHL Games**: Import new game data from the official NHL API
 3. **Calculate Team Statistics**: Aggregate period data into meaningful team metrics
 4. **Request Human Approval**: Get user confirmation for large operations (7+ days of data)
+5. **Sync Recent Games**: Automatically sync games from the last N days (simpler than manual date ranges)
+6. **Lookup Team**: Resolve team names/nicknames to official codes (e.g., "Canes" → "CAR")
+7. **Compare Teams**: Head-to-head analysis with period-level insights
+8. **Get Standings**: Fetch current NHL standings from the official API
+9. **Check Data Health**: Diagnose database issues (missing data, gaps, etc.)
+10. **Get Team Schedule**: View a team's recent/upcoming games with results
+11. **Analyze Trends**: Track team performance changes over time
 
 ## Guidelines
 - Always explain your reasoning before using tools
@@ -44,6 +60,15 @@ Teams that win 2 or more individual periods in regulation (not including OT/SO) 
 - For bulk imports (>7 days), ALWAYS use request_human_approval first
 - Present statistics in a clear, organized manner
 - Compare teams using the good wins/bad wins framework
+
+## Tool Selection Guide
+- User mentions a team by nickname/city → Use **lookup_team** first
+- "Keep data up to date" or "sync games" → Use **sync_recent_games**
+- "Compare X vs Y" or "head to head" → Use **compare_teams**
+- "Current standings" or "playoff picture" → Use **get_standings**
+- "Show me [team]'s last/recent games" → Use **get_team_schedule**
+- "Is [team] improving?" or "trends" → Use **analyze_trends**
+- "Why is data missing?" or "check database" → Use **check_data_health**
 
 ## Data Notes
 - Game IDs follow format: YYYYTTGGGG (e.g., 2024020003)
@@ -57,10 +82,19 @@ Remember: You're helping users discover insights about which teams are genuinely
 
 // Define the tools array
 const tools = [
+  // Core tools
   queryPeriodDataTool,
   fetchNhlGamesTool,
   calculateTeamStatsTool,
   requestHumanApprovalTool,
+  // New tools
+  syncRecentGamesTool,
+  lookupTeamTool,
+  compareTeamsTool,
+  getStandingsTool,
+  checkDataHealthTool,
+  getTeamScheduleTool,
+  analyzeTrendsTool,
 ];
 
 // Store for conversation memories (keyed by session ID)
