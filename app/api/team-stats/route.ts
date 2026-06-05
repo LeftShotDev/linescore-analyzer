@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase, isSupabaseConfigured } from '@/lib/supabase/client';
+import { supabaseAdmin, isSupabaseConfigured } from '@/lib/supabase/client';
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
 
   try {
     // Fetch all teams
-    const { data: teams, error: teamsError } = await supabase
+    const { data: teams, error: teamsError } = await supabaseAdmin()
       .from('teams')
       .select('*')
       .order('team_name', { ascending: true });
@@ -23,9 +23,12 @@ export async function GET(request: NextRequest) {
     }
 
     // Get all unique seasons for the filter dropdown (most recent first)
-    const { data: allGames, error: allGamesError } = await supabase
+    // Use regular-season games only for the seasons list
+    const { data: allGames, error: allGamesError } = await supabaseAdmin()
       .from('games')
-      .select('season');
+      .select('season')
+      .eq('game_type', 'Regular Season')
+      .limit(5000);
 
     if (allGamesError) {
       throw allGamesError;
@@ -36,31 +39,48 @@ export async function GET(request: NextRequest) {
     // Default to most recent season if no filter provided
     const activeSeason = seasonFilter || seasons[0] || null;
 
-    // Fetch games filtered by season
-    let gamesQuery = supabase.from('games').select('*');
-    if (activeSeason) {
-      gamesQuery = gamesQuery.eq('season', activeSeason);
-    }
-    const { data: games, error: gamesError } = await gamesQuery;
-
-    if (gamesError) {
-      throw gamesError;
-    }
-
-    // Get game IDs for the filtered games
-    const filteredGameIds = new Set(games?.map(g => g.game_id) || []);
-
-    // Fetch period results only for filtered games
-    const { data: allPeriodResults, error: periodError } = await supabase
-      .from('period_results')
-      .select('*');
-
-    if (periodError) {
-      throw periodError;
+    // Fetch all regular season games — paginate since Supabase max_rows = 1000.
+    // Each team plays 82 regular season games (1312 total per season).
+    const games: any[] = [];
+    {
+      let from = 0;
+      while (true) {
+        let q = supabaseAdmin()
+          .from('games')
+          .select('*')
+          .eq('game_type', 'Regular Season')
+          .range(from, from + 999);
+        if (activeSeason) q = q.eq('season', activeSeason);
+        const { data, error } = await q;
+        if (error) throw error;
+        if (!data?.length) break;
+        games.push(...data);
+        if (data.length < 1000) break;
+        from += 1000;
+      }
     }
 
-    // Filter period results to only include games in our filtered set
-    const periodResults = allPeriodResults?.filter(pr => filteredGameIds.has(pr.game_id)) || [];
+    // Fetch all period results for those games.
+    // Paginate per 1000-ID chunk (both IN clause and max_rows are capped at 1000).
+    const filteredGameIdArray = games.map(g => g.game_id);
+    const periodResults: any[] = [];
+    const ID_CHUNK = 1000;
+    for (let c = 0; c < filteredGameIdArray.length; c += ID_CHUNK) {
+      const idChunk = filteredGameIdArray.slice(c, c + ID_CHUNK);
+      let from = 0;
+      while (true) {
+        const { data, error } = await supabaseAdmin()
+          .from('period_results')
+          .select('*')
+          .in('game_id', idChunk)
+          .range(from, from + 999);
+        if (error) throw error;
+        if (!data?.length) break;
+        periodResults.push(...data);
+        if (data.length < 1000) break;
+        from += 1000;
+      }
+    }
 
     // Calculate stats for each team
     const teamStats = teams?.map((team) => {

@@ -9,7 +9,9 @@
     "lint": "next lint",
     "type-check": "tsc --noEmit",
     "migrate:backfill": "tsx scripts/backfill-period-results.ts",
-    "migrate:backfill:dry": "tsx scripts/backfill-period-results.ts --dry-run"
+    "migrate:backfill:dry": "tsx scripts/backfill-period-results.ts --dry-run",
+    "ingest:2025-2026": "tsx scripts/ingest-2025-2026.ts",
+    "ingest:2025-2026:dry": "tsx scripts/ingest-2025-2026.ts --dry-run"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^0.0.56",

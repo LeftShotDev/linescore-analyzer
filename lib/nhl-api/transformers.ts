@@ -14,21 +14,20 @@ import type { Game, PeriodResult } from '../supabase/queries';
 
 /**
  * Calculate period outcome (WIN/LOSS/TIE)
- * Constitution Principle IV: Exclude empty net goals from period 3
+ * Excludes empty net goals from both sides for all period types.
+ * EN goals do not represent even-strength play and skew period dominance.
  */
 export function calculatePeriodOutcome(
-  periodNumber: number,
   goalsFor: number,
   goalsAgainst: number,
-  emptyNetGoals: number
+  teamEnGoals: number = 0,
+  opponentEnGoals: number = 0
 ): 'WIN' | 'LOSS' | 'TIE' {
-  // Special case: Exclude empty net goals from 3rd period (FR-008)
-  const adjustedGoalsFor = periodNumber === 3
-    ? goalsFor - emptyNetGoals
-    : goalsFor;
+  const adjustedGoalsFor = goalsFor - teamEnGoals;
+  const adjustedGoalsAgainst = goalsAgainst - opponentEnGoals;
 
-  if (adjustedGoalsFor > goalsAgainst) return 'WIN';
-  if (adjustedGoalsFor < goalsAgainst) return 'LOSS';
+  if (adjustedGoalsFor > adjustedGoalsAgainst) return 'WIN';
+  if (adjustedGoalsFor < adjustedGoalsAgainst) return 'LOSS';
   return 'TIE';
 }
 
@@ -252,10 +251,10 @@ export function transformGameFeed(
 
     // Home team period result
     const homeOutcome = calculatePeriodOutcome(
-      periodNumber,
       period.home.goals,
       period.away.goals,
-      homeEnGoals
+      homeEnGoals,
+      awayEnGoals
     );
 
     periodResults.push({
@@ -272,10 +271,10 @@ export function transformGameFeed(
 
     // Away team period result
     const awayOutcome = calculatePeriodOutcome(
-      periodNumber,
       period.away.goals,
       period.home.goals,
-      awayEnGoals
+      awayEnGoals,
+      homeEnGoals
     );
 
     periodResults.push({
@@ -365,8 +364,9 @@ export function transformGameLanding(
     let awayEnGoals = 0;
 
     for (const goal of periodScoring.goals) {
-      const isEmptyNet = goal.goalModifier === 'empty-net' ||
-                        (goal.situationCode && goal.situationCode.toString().slice(-1) === '1'); // Last digit 1 = EN
+      // goalModifier === 'empty-net' is the authoritative field from the NHL landing API.
+      // The situationCode fallback was incorrect (1551=5v5 also ends in '1').
+      const isEmptyNet = goal.goalModifier === 'empty-net';
 
       const goalTeamAbbrev = goal.teamAbbrev.default;
 
@@ -379,9 +379,9 @@ export function transformGameLanding(
       }
     }
 
-    // Calculate outcomes for both teams
-    const homeOutcome = calculatePeriodOutcome(periodNumber, homeGoals, awayGoals, homeEnGoals);
-    const awayOutcome = calculatePeriodOutcome(periodNumber, awayGoals, homeGoals, awayEnGoals);
+    // Calculate outcomes for both teams — exclude both sides' EN goals
+    const homeOutcome = calculatePeriodOutcome(homeGoals, awayGoals, homeEnGoals, awayEnGoals);
+    const awayOutcome = calculatePeriodOutcome(awayGoals, homeGoals, awayEnGoals, homeEnGoals);
 
     // Add home team period result
     periodResults.push({

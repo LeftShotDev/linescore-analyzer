@@ -17,27 +17,22 @@ interface MessageListProps {
   isLoading?: boolean;
 }
 
-// Human-readable tool names
+// Human-readable tool names — matches tool keys in app/api/chat/route.ts
 const toolDisplayNames: Record<string, { name: string; icon: string; color: string }> = {
-  query_period_data: {
+  query_linescore_data: {
     name: 'Query Database',
     icon: 'M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4',
     color: 'bg-purple-500/20 text-purple-400 border-purple-500/30',
   },
-  fetch_nhl_games: {
-    name: 'NHL API',
+  add_games_from_api: {
+    name: 'NHL API Import',
     icon: 'M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064',
     color: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
   },
-  calculate_team_stats: {
+  calculate_period_stats: {
     name: 'Calculate Stats',
     icon: 'M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z',
     color: 'bg-[#3ecf8e]/20 text-[#3ecf8e] border-[#3ecf8e]/30',
-  },
-  request_human_approval: {
-    name: 'Approval Request',
-    icon: 'M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z',
-    color: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
   },
 };
 
@@ -89,9 +84,48 @@ export function MessageList({ messages, error, quickPrompts, onQuickPrompt, isLo
     );
   }
 
-  // Helper to format message content with markdown-like styling
+  // Render a markdown table block as a styled HTML table
+  const renderMarkdownTable = (tableText: string, key: number) => {
+    const rows = tableText.trim().split('\n').filter(r => r.trim());
+    if (rows.length < 2) return <span key={key}>{tableText}</span>;
+
+    const parseRow = (row: string) =>
+      row.split('|').slice(1, -1).map(cell => cell.trim());
+
+    const headers = parseRow(rows[0]);
+    const dataRows = rows.slice(2).map(parseRow); // skip separator row
+
+    return (
+      <div key={key} className="overflow-x-auto my-3 rounded-lg border border-[#2e2e2e]">
+        <table className="min-w-full text-xs">
+          <thead>
+            <tr className="bg-[#232323] border-b border-[#2e2e2e]">
+              {headers.map((h, i) => (
+                <th key={i} className="px-3 py-2 text-left font-semibold text-[#3ecf8e] whitespace-nowrap">
+                  {h}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {dataRows.map((row, ri) => (
+              <tr key={ri} className={ri % 2 === 0 ? 'bg-[#1a1a1a]' : 'bg-[#1e1e1e]'}>
+                {row.map((cell, ci) => (
+                  <td key={ci} className="px-3 py-2 text-[#ccc] whitespace-nowrap">
+                    {cell}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+  };
+
+  // Helper to format message content — handles code blocks, markdown tables, bold text
   const formatContent = (content: string) => {
-    // Handle code blocks
+    // Split on code blocks first
     const parts = content.split(/(```[\s\S]*?```)/g);
     return parts.map((part, idx) => {
       if (part.startsWith('```')) {
@@ -103,14 +137,33 @@ export function MessageList({ messages, error, quickPrompts, onQuickPrompt, isLo
         );
       }
 
-      // Handle inline formatting
+      // Within non-code text, detect markdown tables (blocks of lines starting with |)
+      const tablePattern = /((?:\|[^\n]+\|\n?){2,})/g;
+      const textParts = part.split(tablePattern);
+
       return (
-        <span key={idx} className="whitespace-pre-wrap">
-          {part.split(/(\*\*[^*]+\*\*)/g).map((segment, sIdx) => {
-            if (segment.startsWith('**') && segment.endsWith('**')) {
-              return <strong key={sIdx} className="text-white">{segment.slice(2, -2)}</strong>;
+        <span key={idx}>
+          {textParts.map((segment, sIdx) => {
+            const lines = segment.trim().split('\n');
+            const isTable =
+              lines.length >= 2 &&
+              lines.every(l => l.trim().startsWith('|') && l.trim().endsWith('|'));
+
+            if (isTable) {
+              return renderMarkdownTable(segment, sIdx);
             }
-            return segment;
+
+            // Inline formatting: bold
+            return (
+              <span key={sIdx} className="whitespace-pre-wrap">
+                {segment.split(/(\*\*[^*]+\*\*)/g).map((s, bIdx) => {
+                  if (s.startsWith('**') && s.endsWith('**')) {
+                    return <strong key={bIdx} className="text-white">{s.slice(2, -2)}</strong>;
+                  }
+                  return s;
+                })}
+              </span>
+            );
           })}
         </span>
       );
